@@ -3,6 +3,15 @@
 </h1>
 
 <p align="center">
+  <a href="https://github.com/andrefetch/relay/stargazers"><img src="https://img.shields.io/github/stars/andrefetch/relay?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub stars" /></a>
+  <a href="https://github.com/andrefetch/relay/network/members"><img src="https://img.shields.io/github/forks/andrefetch/relay?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub forks" /></a>
+  <a href="https://github.com/andrefetch/relay/watchers"><img src="https://img.shields.io/github/watchers/andrefetch/relay?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub watchers" /></a>
+  <a href="https://github.com/andrefetch/relay/issues"><img src="https://img.shields.io/github/issues/andrefetch/relay?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub issues" /></a>
+  <a href="https://github.com/andrefetch/relay/blob/main/LICENSE"><img src="https://img.shields.io/github/license/andrefetch/relay?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="License" /></a>
+  <img src="https://img.shields.io/github/last-commit/andrefetch/relay?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="Last commit" />
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/PYTHON-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/OPENROUTER-1a1a1a?style=for-the-badge&logoColor=white" alt="OpenRouter" />
   <img src="https://img.shields.io/badge/OPENAI%20SDK-412991?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI SDK" />
