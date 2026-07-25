@@ -72,3 +72,6 @@ uv.lock
 ._*
 .Spotlight-V100
 .Trashes
+
+# relay proj
+hook.log
