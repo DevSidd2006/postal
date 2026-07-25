@@ -2,7 +2,6 @@
 
 Hey, thanks for wanting to contribute!
 
-If you find issues, please create the solution in your own branch and make a PR.
 
 ## Getting started
 
