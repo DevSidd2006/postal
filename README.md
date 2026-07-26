@@ -28,7 +28,7 @@ Relay is an open-source AI coding agent that runs in your terminal. It connects 
 </p>
 
 > [!WARNING]
-> **Work in progress.** The agent loop, tool calling, terminal UI, and approval flow work end to end. The approval policy is set in config (`approval = "on_request"` by default), there is **no way to switch it mid-session yet**. Sub-agents still auto-approve their own tool calls, so use Relay in a directory you don't mind it touching
+> **Work in progress.** The agent loop, tool calling, terminal UI, and approval flow work end to end. The [approval policy](#approvals) is set in config (`approval = "on_request"` by default), there is **no way to switch it mid-session yet**. Sub-agents still auto-approve their own tool calls, so use Relay in a directory you don't mind it touching
 
 ## Functionality
 
@@ -51,6 +51,7 @@ Relay is an open-source AI coding agent that runs in your terminal. It connects 
 ### Agent
 | | |
 | --- | --- |
+| **Approvals** | Mutating tool calls are gated by an approval policy, from confirming every write to running unattended. See [Approvals](#approvals). |
 | **Sub-agents** | Specialized agents the main agent can delegate to: `codebase_investigator`, `code_reviewer`, `software_architect`, `test_writer`, `debugger`. |
 | **`AGENTS.md`** | Project instructions are picked up automatically and followed while working. |
 | **Context pruning** | Old tool outputs are cleared once they pile up past the recent working set, reclaiming tokens without touching the conversation itself. |
@@ -75,6 +76,52 @@ relay --cwd /path     # run against a different working directory
 # Remove the saved API key
 relay logout
 ```
+
+## Approvals
+
+Before Relay runs anything that changes state, the approval policy decides whether it goes ahead, asks you, or is refused outright. Read-only tools (`read`, `grep`, `glob`, `list_directories`, `plan`) never prompt, so a policy only affects writes, shell commands, network calls, memory writes, MCP tools, and sub-agent runs.
+
+Set it with the `approval` key in your config file:
+
+```toml
+# ~/.config/relay/config.toml (user-wide), or .relay/config.toml (per project)
+approval = "on_request"
+```
+
+| Value | Badge | Behaviour |
+| --- | --- | --- |
+| `on_request` *(default)* | `ask` | Confirm every mutating tool call. Commands matched as known-safe (`ls`, `git status`, `grep`, …) run without asking. |
+| `auto_edit` | `auto-edit` | File edits and writes inside the working directory go through unprompted; shell commands still need confirmation unless known-safe. |
+| `auto` | `auto` | Everything runs except dangerous commands, which are rejected. |
+| `on_fail` | `on fail` | Currently identical to `auto`. Reserved for prompting after a failed tool call, which is not implemented yet. |
+| `never` | `read-only` | Rejects anything that isn't a known-safe command. Nothing gets written, and you are never prompted. |
+| `yolo` | `yolo` | Approves everything, including commands matched as dangerous. Only use this in a sandbox or container. |
+
+Two rules apply on top of the policy, and no policy except `yolo` overrides them:
+
+- **Dangerous commands are rejected.** `rm -rf /`, `dd if=`, `mkfs`, `shutdown`, `curl … | bash`, fork bombs, and similar patterns are refused before the shell ever sees them (the full list is `DANGEROUS_PATTERNS` in `safety/approval.py`).
+- **Anything touching a path outside the working directory is confirmed**, however permissive the policy is (`never` rejects it instead).
+
+The active policy is printed at startup and shown in the prompt badge, colour-coded by risk: normal for `ask`, `auto-edit` and `read-only`, amber for `auto` and `on fail`, red for `yolo`.
+
+### Answering a prompt
+
+When confirmation is needed, Relay pauses the stream and shows the tool, its arguments, the command it wants to run, and a diff for file edits:
+
+```text
+⏵ edit  needs your approval
+Edit relay/config/config.py
+╭─────────────────────────────────────────╮
+│ - approval: ApprovalPolicy = ON_REQUEST │
+│ + approval: ApprovalPolicy = AUTO_EDIT  │
+╰─────────────────────────────────────────╯
+y accept  ·  n reject  ·  esc reject   approval: ask - confirm every mutating tool
+```
+
+`y`, `a` or `enter` approves; `n`, `d`, `q`, `esc` or `ctrl+c` rejects. A rejection is fed back to the agent as a failed tool call, so it can pick a different approach rather than stopping.
+
+> [!NOTE]
+> Two gaps to be aware of: the policy is fixed for the session (a `/approval` command is on the [roadmap](#roadmap)), and sub-agents run with their own auto-approving manager, so tool calls they make are not routed to you.
 
 ## Project instructions (`AGENTS.md`)
 
