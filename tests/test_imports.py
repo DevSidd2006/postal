@@ -10,7 +10,14 @@ import unittest
 class ImportTests(unittest.TestCase):
     def test_approval_manager_imports_in_clean_interpreter(self) -> None:
         result = subprocess.run(
-            [sys.executable, "-c", "from safety.approval import ApprovalManager"],
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from safety.approval import ApprovalManager; "
+                    "from tools import ToolRegistry, create_default_registry"
+                ),
+            ],
             text=True,
             capture_output=True,
         )
