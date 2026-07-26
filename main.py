@@ -37,6 +37,7 @@ class DefaultGroup(click.Group):
 
 
 @click.group(cls=DefaultGroup, invoke_without_command=True)
+@click.version_option(package_name="relay-code", prog_name="relay")
 @click.option(
     '--cwd',
     '-c',
