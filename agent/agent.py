@@ -21,6 +21,7 @@ class Agent:
     async def run(self, message: str):
         await self.session.hook_system.trigger_before_agent(message)
         yield AgentEvent.agent_start(message)
+        self.session.inc_turn()
         self.session.reset_turn_usage()
         self.session.context_manager.add_user_message(message)
 
@@ -40,8 +41,6 @@ class Agent:
         max_turns = self.config.max_turns
 
         for i in range(max_turns):
-
-            self.session.inc_turn()
 
             response_text = ""
 
