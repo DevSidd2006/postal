@@ -1,4 +1,5 @@
 import unittest
+from importlib.metadata import version
 
 from click.testing import CliRunner
 
@@ -10,7 +11,7 @@ class RelayCliTests(unittest.TestCase):
         result = CliRunner().invoke(main, ["--version"])
 
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("relay, version 0.0.22", result.output)
+        self.assertIn(f"relay, version {version('relay-code')}", result.output)
 
 
 if __name__ == "__main__":
