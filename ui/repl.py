@@ -189,6 +189,19 @@ class Repl:
             )
         )
 
+    def _farewell(self, agent: Agent) -> None:
+        """Leave the session id behind so the session can be picked up later."""
+        session = agent.session
+        turns = session.turns
+
+        line = Text.assemble(("Session ", "muted"), (session.session_id, "subtitle"))
+        line.append("  ·  ", style="dim")
+        line.append(f"{turns} turn{'' if turns == 1 else 's'}", style="muted")
+
+        self.console.print()
+        self.console.print(line)
+        self.console.print(Text("Keep this id to resume the session.", style="border"))
+
     def _reset_plan(self, agent: Agent) -> None:
         tool = agent.session.tool_registry.get("plan")
         if tool is not None and hasattr(tool, "reset"):
@@ -289,17 +302,20 @@ class Repl:
     async def run(self) -> None:
         async with Agent(self.config, confirmation_callback=self.tui.confirm_tool) as agent:
             self._banner(agent)
-            while True:
-                try:
-                    message = await self._read_input()
-                except KeyboardInterrupt:
-                    continue
-                except EOFError:
-                    break
+            try:
+                while True:
+                    try:
+                        message = await self._read_input()
+                    except KeyboardInterrupt:
+                        continue
+                    except EOFError:
+                        break
 
-                message = message.strip()
-                if not message:
-                    continue
+                    message = message.strip()
+                    if not message:
+                        continue
 
-                self._reset_plan(agent)
-                await self._run_turn(agent, message)
+                    self._reset_plan(agent)
+                    await self._run_turn(agent, message)
+            finally:
+                self._farewell(agent)

@@ -91,7 +91,12 @@ class Session:
         self.turn_usage = TokenUsage()
     
     def inc_turn(self) -> int:
+        """Count one user turn. A turn may span many model round-trips."""
         self._turn_count += 1
         self.updated_at = datetime.now()
 
+        return self._turn_count
+
+    @property
+    def turns(self) -> int:
         return self._turn_count
