@@ -6,7 +6,7 @@ from config.config import Config
 from agent.events import AgentEvent, AgentEventType
 from client.response import StreamEventType, TokenUsage, ToolCall, ToolResultMessage
 from context.compaction import ChatCompactor
-from prompts.system import create_loop_breaker_prompt
+from prompts import create_loop_breaker_prompt
 from tools.base import ToolConfirmation
 
 class Agent:

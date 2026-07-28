@@ -3,7 +3,7 @@ from typing import Any
 from client.llm_client import LLMClient
 from client.response import StreamEventType, TokenUsage
 from context.manager import ContextManager
-from prompts.system import get_compaction_prompt
+from prompts import get_compaction_prompt
 
 class ChatCompactor:
 

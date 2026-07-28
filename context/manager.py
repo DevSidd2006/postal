@@ -1,6 +1,6 @@
 from client.response import TokenUsage
 from config.config import Config
-from prompts.system import get_system_prompt
+from prompts import get_system_prompt
 from dataclasses import dataclass, field
 from tools.base import Tool
 from utils.text import count_tokens
