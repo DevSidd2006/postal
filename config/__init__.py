@@ -1,4 +1,4 @@
-"""Configuration module for Relay."""
+"""Configuration module for Postal."""
 
 from config.config import Config, ModelConfig
 from config.loader import load_config

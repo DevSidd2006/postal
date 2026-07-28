@@ -12,7 +12,7 @@ CREDENTIALS_FILE = "credentials.toml"
 
 
 def get_credentials_path() -> Path:
-    return Path(user_config_dir("relay")) / CREDENTIALS_FILE
+    return Path(user_config_dir("postal")) / CREDENTIALS_FILE
 
 
 def load_credentials() -> dict[str, str]:
@@ -34,7 +34,7 @@ def save_credentials(api_key: str, base_url: str | None = None) -> Path:
     path = get_credentials_path()
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    lines = ["# relay credentials, written by `relay login`. Do not commit.\n"]
+    lines = ["# postal credentials, written by `postal login`. Do not commit.\n"]
     lines.append(f'api_key = "{_toml_escape(api_key)}"\n')
     if base_url:
         lines.append(f'base_url = "{_toml_escape(base_url)}"\n')

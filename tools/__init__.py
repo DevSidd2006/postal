@@ -1,4 +1,4 @@
-"""Tools module for the Relay agent."""
+"""Tools module for the Postal agent."""
 
 from typing import TYPE_CHECKING
 

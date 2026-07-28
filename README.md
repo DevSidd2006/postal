@@ -1,11 +1,11 @@
 <h1 align='center'>
-  Relay
+  Postal
 </h1>
 
 <p align="center">
-  <a href="https://github.com/andrefetch/relay/stargazers"><img src="https://img.shields.io/github/stars/andrefetch/relay?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub stars" /></a>
-  <a href="https://github.com/andrefetch/relay/network/members"><img src="https://img.shields.io/github/forks/andrefetch/relay?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub forks" /></a>
-  <a href="https://github.com/andrefetch/relay/issues"><img src="https://img.shields.io/github/issues/andrefetch/relay?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub issues" /></a>
+  <a href="https://github.com/andrefetch/postal/stargazers"><img src="https://img.shields.io/github/stars/andrefetch/postal?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub stars" /></a>
+  <a href="https://github.com/andrefetch/postal/network/members"><img src="https://img.shields.io/github/forks/andrefetch/postal?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub forks" /></a>
+  <a href="https://github.com/andrefetch/postal/issues"><img src="https://img.shields.io/github/issues/andrefetch/postal?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub issues" /></a>
 
 <p align="center">
   <img src="https://img.shields.io/badge/PYTHON-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
@@ -19,14 +19,14 @@
   <img src="https://img.shields.io/badge/DOCKER-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
 </p>
 
-Relay, an open-source AI coding agent that runs in your terminal. It connects to LLMs through OpenRouter, reads and edits your code with a built-in tool set, runs shell commands, and streams everything through a full-screen TUI.
+Postal, an open-source AI coding agent that runs in your terminal. It connects to LLMs through OpenRouter, reads and edits your code with a built-in tool set, runs shell commands, and streams everything through a full-screen TUI.
 
 <p align="center">
-  <img src="assets/demo_smooth.gif" alt="Relay planning and executing a multi-step task in the terminal" width="100%" />
+  <img src="assets/demo_smooth.gif" alt="Postal planning and executing a multi-step task in the terminal" width="100%" />
 </p>
 
 > [!WARNING]
-> **Work in progress.** The agent loop, tool calling, terminal UI, and approval flow work end to end. The [approval policy](#approvals) is set in config (`approval = "on_request"` by default), there is **no way to switch it mid-session yet**. Sub-agents still auto-approve their own tool calls, so use Relay in a directory you don't mind it touching
+> **Work in progress.** The agent loop, tool calling, terminal UI, and approval flow work end to end. The [approval policy](#approvals) is set in config (`approval = "on_request"` by default), there is **no way to switch it mid-session yet**. Sub-agents still auto-approve their own tool calls, so use Postal in a directory you don't mind it touching
 
 ## Functionality
 
@@ -54,35 +54,35 @@ Relay, an open-source AI coding agent that runs in your terminal. It connects to
 | **`AGENTS.md`** | Project instructions are picked up automatically and followed while working. |
 | **Context pruning** | Old tool outputs are cleared once they pile up past the recent working set, reclaiming tokens without touching the conversation itself. |
 | **Compaction** | When the context window fills up, history is summarized into a continuation brief and the session resumes from it instead of erroring out. |
-| **OpenRouter backend** | Authenticate once with `relay login` (browser OAuth) or paste an API key. Model, temperature, and context window are configurable in `~/.config/relay/config.toml`, with per-project overrides in `.relay/config.toml`. |
+| **OpenRouter backend** | Authenticate once with `postal login` (browser OAuth) or paste an API key. Model, temperature, and context window are configurable in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`. |
 
 ## Getting started
 
 ```bash
-# 1. Install Relay
-pip install relay-code
+# 1. Install Postal
+pip install postalcli
 
 # 2. Log in (opens your browser to authorize with OpenRouter)
-relay login
-relay login --paste   # or paste an API key directly
+postal login
+postal login --paste   # or paste an API key directly
 
 # 3. Run it
-relay                 # interactive mode
-relay "your prompt"   # single-shot mode
-relay --cwd /path     # run against a different working directory
+postal                 # interactive mode
+postal "your prompt"   # single-shot mode
+postal --cwd /path     # run against a different working directory
 
 # Remove the saved API key
-relay logout
+postal logout
 ```
 
 ## Approvals
 
-Before Relay runs anything that changes state, the approval policy decides whether it goes ahead, asks you, or is refused outright. Read-only tools (`read`, `grep`, `glob`, `list_directories`, `plan`) never prompt, so a policy only affects writes, shell commands, network calls, memory writes, MCP tools, and sub-agent runs.
+Before Postal runs anything that changes state, the approval policy decides whether it goes ahead, asks you, or is refused outright. Read-only tools (`read`, `grep`, `glob`, `list_directories`, `plan`) never prompt, so a policy only affects writes, shell commands, network calls, memory writes, MCP tools, and sub-agent runs.
 
 Set it with the `approval` key in your config file:
 
 ```toml
-# ~/.config/relay/config.toml (user-wide), or .relay/config.toml (per project)
+# ~/.config/postal/config.toml (user-wide), or .postal/config.toml (per project)
 approval = "on_request"
 ```
 
@@ -104,11 +104,11 @@ The active policy is printed at startup and shown in the prompt badge, colour-co
 
 ### Answering a prompt
 
-When confirmation is needed, Relay pauses the stream and shows the tool, its arguments, the command it wants to run, and a diff for file edits:
+When confirmation is needed, Postal pauses the stream and shows the tool, its arguments, the command it wants to run, and a diff for file edits:
 
 ```text
 ⏵ edit  needs your approval
-Edit relay/config/config.py
+Edit postal/config/config.py
 ╭─────────────────────────────────────────╮
 │ - approval: ApprovalPolicy = ON_REQUEST │
 │ + approval: ApprovalPolicy = AUTO_EDIT  │
@@ -123,9 +123,9 @@ y accept  ·  n reject  ·  esc reject   approval: ask - confirm every mutating 
 
 ## Project instructions (`AGENTS.md`)
 
-Drop an `AGENTS.md` at the root of your repo and Relay loads it as developer instructions at startup, use it for build and test commands, code style, or anything else the agent should know before touching your code
+Drop an `AGENTS.md` at the root of your repo and Postal loads it as developer instructions at startup, use it for build and test commands, code style, or anything else the agent should know before touching your code
 
-Relay walks up from the working directory to the repository root, so running `relay` inside a subdirectory still picks up the root file. Every `AGENTS.md` found along the way is included, ordered outermost first.
+Postal walks up from the working directory to the repository root, so running `postal` inside a subdirectory still picks up the root file. Every `AGENTS.md` found along the way is included, ordered outermost first.
 
 ```markdown
 # AGENTS.md

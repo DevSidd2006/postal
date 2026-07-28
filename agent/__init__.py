@@ -1,4 +1,4 @@
-"""Agent module for the Relay AI coding agent."""
+"""Agent module for the Postal AI coding agent."""
 
 from agent.agent import Agent
 from agent.events import AgentEvent, AgentEventType

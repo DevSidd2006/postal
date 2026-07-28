@@ -52,7 +52,7 @@ class ToolDiscoveryManager:
     
     def discover_from_dir(self, directory: Path) -> None:
 
-        tool_dir = directory / '.relay' / 'tools'
+        tool_dir = directory / '.postal' / 'tools'
 
         if not tool_dir.exists() or not tool_dir.is_dir():
             return

@@ -16,10 +16,10 @@ CONFIG_FILE = 'config.toml'
 AGENT_MD_FILE = 'AGENTS.md'
 
 def get_config_dir() -> Path:
-    return Path(user_config_dir('relay'))
+    return Path(user_config_dir('postal'))
 
 def get_data_dir() -> Path:
-    return Path(user_config_dir('relay'))
+    return Path(user_config_dir('postal'))
 
 def get_system_config_path() -> Path:
     return get_config_dir() / CONFIG_FILE
@@ -36,7 +36,7 @@ def _parse_toml(path: Path):
 def _get_project_config(cwd: Path) -> Path:
 
     current = cwd.resolve()
-    agent_dir = current / '.relay'
+    agent_dir = current / '.postal'
 
     if agent_dir.is_dir():
         config_file = agent_dir / CONFIG_FILE

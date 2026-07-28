@@ -5,11 +5,11 @@ Hey, thanks for wanting to contribute!
 
 ## Getting started
 
-Relay is a Python project (3.11+). To get set up locally:
+Postal is a Python project (3.11+). To get set up locally:
 
 ```bash
-git clone https://github.com/andrefetch/relay.git
-cd relay
+git clone https://github.com/andrefetch/postal.git
+cd postal
 uv sync
 ```
 

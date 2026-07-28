@@ -37,7 +37,7 @@ class DefaultGroup(click.Group):
 
 
 @click.group(cls=DefaultGroup, invoke_without_command=True)
-@click.version_option(package_name="relay-code", prog_name="relay")
+@click.version_option(package_name="postalcli", prog_name="postal")
 @click.option(
     '--cwd',
     '-c',
@@ -51,7 +51,7 @@ class DefaultGroup(click.Group):
 @click.pass_context
 def main(ctx: click.Context, cwd: Path | None):
     ctx.obj = {"cwd": cwd}
-    # Bare `relay` with no subcommand launches the interactive TUI.
+    # Bare `postal` with no subcommand launches the interactive TUI.
     if ctx.invoked_subcommand is None:
         ctx.invoke(run, prompt=None)
 
@@ -111,12 +111,12 @@ def login(base_url: str | None, paste: bool):
             console.print("[error]No key entered, nothing saved.[/error]")
             sys.exit(1)
     else:
-        console.print("Opening your browser to authorize relay with OpenRouter...")
+        console.print("Opening your browser to authorize postal with OpenRouter...")
         try:
             api_key = login_with_oauth(resolved_base_url)
         except OAuthError as e:
             console.print(f"[error]Login failed:[/error] {e}")
-            console.print("[warning]You can retry, or run `relay login --paste` to enter a key manually.[/warning]")
+            console.print("[warning]You can retry, or run `postal login --paste` to enter a key manually.[/warning]")
             sys.exit(1)
 
     path = save_credentials(api_key, resolved_base_url)

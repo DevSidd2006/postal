@@ -157,7 +157,7 @@ class Config(BaseModel):
     @property
     def api_key(self) -> str | None:
         # Env var wins (handy for CI / one-off overrides); otherwise fall
-        # back to whatever `relay login` saved.
+        # back to whatever `postal login` saved.
         return os.environ.get("API_KEY") or load_credentials().get("api_key")
 
     @property
@@ -184,7 +184,7 @@ class Config(BaseModel):
         errors: list[str] = []
 
         if not self.api_key:
-            errors.append("No API key was found. Solution: run `relay login` (or set the API_KEY environment variable)")
+            errors.append("No API key was found. Solution: run `postal login` (or set the API_KEY environment variable)")
         
         if not self.cwd.exists():
             errors.append(f"Working directory does not exist: {self.cwd}")

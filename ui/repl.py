@@ -23,7 +23,7 @@ from rich.text import Text
 
 from agent.agent import Agent
 from config.config import Config
-from ui.logo import LOGO_WIDTH, RELAY_VERSION, logo
+from ui.logo import LOGO_WIDTH, POSTAL_VERSION, logo
 from ui.renderer import APPROVAL_RISK_STYLES, TUI, build_key_bindings, get_console
 from ui.stream import stream_turn
 from ui.theme import hex_colour
@@ -34,7 +34,7 @@ PROMPT_MARK = "❯"
 
 PROMPT_WIDTH = len("│ ") + len(PROMPT_MARK) + len(" ")
 
-WELCOME_TITLE = "Welcome to relay!"
+WELCOME_TITLE = "Welcome to postal!"
 
 BANNER_MIN_WIDTH = 2 + 2 + LOGO_WIDTH + 2 + len(WELCOME_TITLE)
 
@@ -86,7 +86,7 @@ def _tilde(path: str) -> str:
 
 
 def _history_path() -> Path:
-    path = Path(user_config_dir("relay")) / HISTORY_FILE
+    path = Path(user_config_dir("postal")) / HISTORY_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -149,7 +149,7 @@ class Repl:
             ("Session", agent.session.session_id if agent else ""),
             ("Model", self.config.model_name),
             ("Approval", f"{policy.label} - {policy.summary}"),
-            ("Version", RELAY_VERSION),
+            ("Version", POSTAL_VERSION),
         ]
         return [(label, value) for label, value in rows if value]
 
@@ -178,7 +178,7 @@ class Repl:
                 Panel(body, box=ROUNDED, border_style="border", padding=(0, 1), expand=False)
             )
         else:
-            self.console.print(Text("relay", style="highlight"))
+            self.console.print(Text("postal", style="highlight"))
             self.console.print(facts)
         self.console.print()
         self.console.print(

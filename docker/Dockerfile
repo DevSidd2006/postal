@@ -42,4 +42,4 @@ VOLUME ["/config"]
 
 WORKDIR /workspace
 
-ENTRYPOINT ["relay"]
+ENTRYPOINT ["postal"]

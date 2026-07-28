@@ -1,10 +1,10 @@
 # Docker Deployment Guide
 
-This document explains how to deploy and use Relay in Docker containers.
+This document explains how to deploy and use Postal in Docker containers.
 
 ## Overview
 
-Relay provides Docker support through a pre-built container image that includes all dependencies and configuration for running the AI coding agent in containerized environments.
+Postal provides Docker support through a pre-built container image that includes all dependencies and configuration for running the AI coding agent in containerized environments.
 
 ## Quick Start
 
@@ -19,25 +19,25 @@ API_KEY="your_openrouter_api_key" docker-compose up -d
 
 2. **Connect to your workspace**
 
-The container mounts your current directory (`$RELAY_WORKSPACE:-..`) as `/workspace` inside the container. You can now interact with your code through Relay.
+The container mounts your current directory (`$POSTAL_WORKSPACE:-..`) as `/workspace` inside the container. You can now interact with your code through Postal.
 
 ### Using Docker Image Directly
 
 1. **Build the image**
 
 ```bash
-docker build -t relay:dev ..
+docker build -t postal:dev ..
 ```
 
 2. **Run the container**
 
 ```bash
 docker run -d \
-  --name relay \
+  --name postal \
   -v "$(pwd):/workspace" \
-  -v "$(pwd)/.relay:/config" \
+  -v "$(pwd)/.postal:/config" \
   -e API_KEY="your_openrouter_api_key" \
-  relay:dev
+  postal:dev
 ```
 
 ## Configuration
@@ -53,63 +53,63 @@ docker run -d \
 ### Volume Mappings
 
 #### Workspace Volume
-- **Host**: `${RELAY_WORKSPACE:-..}` (current directory by default)
+- **Host**: `${POSTAL_WORKSPACE:-..}` (current directory by default)
 - **Container**: `/workspace`
-- **Purpose**: Project directory containing your code to be modified by Relay
+- **Purpose**: Project directory containing your code to be modified by Postal
 
 #### Config Volume
-- **Host**: `.relay/` (relative to project root)
+- **Host**: `.postal/` (relative to project root)
 - **Container**: `/config`
-- **Purpose**: Relay configuration files, including `~/.config/relay/config.toml` (user-wide) and `.relay/config.toml` (project-specific)
+- **Purpose**: Postal configuration files, including `~/.config/postal/config.toml` (user-wide) and `.postal/config.toml` (project-specific)
 
 ## Important Notes
 
 ### Required Setup
 
-1. **API Key**: You need an OpenRouter API key to use Relay. Get one at [openrouter.ai](https://openrouter.ai)
+1. **API Key**: You need an OpenRouter API key to use Postal. Get one at [openrouter.ai](https://openrouter.ai)
 
-2. **Installation**: Install the `relay-code` package locally first (outside containers):
+2. **Installation**: Install the `postalcli` package locally first (outside containers):
 
 ```bash
-pip install relay-code
+pip install postalcli
 ```
 
-3. **Authentication**: Run `relay login` once to authenticate with OpenRouter (opens browser OAuth) or `relay login --paste` to paste API key directly
+3. **Authentication**: Run `postal login` once to authenticate with OpenRouter (opens browser OAuth) or `postal login --paste` to paste API key directly
 
 ### Working Directory
 
 - The container's working directory is `/workspace`
-- Changes made by Relay will be reflected in your host machine through the volume mapping
+- Changes made by Postal will be reflected in your host machine through the volume mapping
 - Ensure you have proper file system permissions for write operations
 
 ### Configuration Persistence
 
-- User configuration (`~/.config/relay/`) is persisted in the `.relay` volume
-- Project-specific configuration (`.relay/`) is mounted from your project directory
+- User configuration (`~/.config/postal/`) is persisted in the `.postal` volume
+- Project-specific configuration (`.postal/`) is mounted from your project directory
 - API keys and other sensitive data should be managed carefully in container environments
 
 ## Development Usage
 
 ### Interactive Mode
 
-Once the container is running, you can interact with Relay:
+Once the container is running, you can interact with Postal:
 
 ```bash
-docker exec -it relay relay "your prompt here"
+docker exec -it postal postal "your prompt here"
 ```
 
 ### Multi-step Tasks
 
 1. Start your container with `docker-compose up -d`
-2. Execute interactive sessions with `docker exec -it relay` and pass prompts to Relay
+2. Execute interactive sessions with `docker exec -it postal` and pass prompts to Postal
 3. Monitor changes in your workspace directory
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### "Command not found: relay"
-- Ensure the `relay-code` package is installed in the container
+#### "Command not found: postal"
+- Ensure the `postalcli` package is installed in the container
 - This is handled automatically in the Docker build process
 
 #### Permission denied
@@ -117,7 +117,7 @@ docker exec -it relay relay "your prompt here"
 - The container user may need write access to files
 
 #### Configuration not found
-- Verify your `.relay/config.toml` file exists with proper settings
+- Verify your `.postal/config.toml` file exists with proper settings
 - User authentication may need to be done outside the container
 
 ### Debugging
@@ -126,8 +126,8 @@ To inspect container state and logs:
 
 ```bash
 docker ps
-docker logs relay
-docker exec -it relay bash
+docker logs postal
+docker exec -it postal bash
 ```
 
 ### Stopping/Removing
@@ -135,8 +135,8 @@ docker exec -it relay bash
 ```bash
 docker-compose down
 # Or for direct Docker usage:
-docker stop relay
-docker rm relay
+docker stop postal
+docker rm postal
 ```
 
 ## Production Considerations
@@ -154,7 +154,7 @@ docker rm relay
 
 ### Monitoring
 
-- Monitor container resource usage with `docker stats relay`
+- Monitor container resource usage with `docker stats postal`
 - Consider implementing logging to a centralized system
 
 ## Advanced Usage
@@ -164,7 +164,7 @@ docker rm relay
 The base Dockerfile in `docker/Dockerfile` can be extended for custom requirements:
 
 ```dockerfile
-FROM relay:latest
+FROM postal:latest
 USER root
 RUN apt-get update && apt-get install -y some-package
 USER appuser
@@ -175,17 +175,17 @@ USER appuser
 For optimized production builds:
 
 ```dockerfile
-FROM relay:latest AS production
+FROM postal:latest AS production
 # Production-specific optimizations
 ```
 
 ### Network Configuration
 
-Expose Relay to external networks:
+Expose Postal to external networks:
 
 ```yaml
 services:
-  relay:
+  postal:
     ports:
       - "8080:80"  # If using a web interface
 ```
@@ -194,7 +194,7 @@ services:
 
 - Main project README: [`../README.md`](../README.md)
 - Docker reference documentation: Look at the main README for installation and usage
-- Configuration options: Check `~/config/relay/config.toml` for available settings
+- Configuration options: Check `~/config/postal/config.toml` for available settings
 
 ## Support
 

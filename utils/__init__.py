@@ -1,4 +1,4 @@
-"""Utility modules for Relay."""
+"""Utility modules for Postal."""
 
 from utils.errors import AgentError, ConfigError
 from utils.paths import resolve_path, display_path_relative_to_cwd, is_binary_file, ensure_parent_dir

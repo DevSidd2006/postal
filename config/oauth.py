@@ -43,7 +43,7 @@ class _CallbackHandler(BaseHTTPRequestHandler):
 
         if code:
             type(self).result["code"] = code
-            body = "<h2>relay is now logged in.</h2><p>You can close this tab.</p>"
+            body = "<h2>postal is now logged in.</h2><p>You can close this tab.</p>"
         else:
             type(self).result["error"] = params.get("error", ["unknown error"])[0]
             body = "<h2>Login failed.</h2><p>You can close this tab and try again.</p>"
@@ -130,7 +130,7 @@ def login_with_oauth(base_url: str, open_browser=webbrowser.open) -> str:
 
     if not opened:
         # Headless / no default browser: let the user open it themselves.
-        print("Open this URL in your browser to authorize relay:")
+        print("Open this URL in your browser to authorize postal:")
         print(f"  {auth_url}")
 
     code = _wait_for_code(server, handler.result)

@@ -1,5 +1,5 @@
-# relay configuration
-# System-level defaults. A project-level .relay/config.toml (in your cwd)
+# postal configuration
+# System-level defaults. A project-level .postal/config.toml (in your cwd)
 # is merged on top of this and takes precedence.
 #
 # Note: api_key and base_url are NOT set here, they come from the
