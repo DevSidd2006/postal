@@ -2,7 +2,7 @@ from rich.text import Text
 
 from ui.theme import PALETTE
 
-POSTAL_VERSION = "0.0.22"
+POSTAL_VERSION = "0.0.23"
 
 CLOUD_PIXELS = (
     "..###...",
