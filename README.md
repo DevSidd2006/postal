@@ -15,9 +15,7 @@
   <img src="https://img.shields.io/badge/PYDANTIC-E92063?style=for-the-badge&logo=pydantic&logoColor=white" alt="Pydantic" />
   <br />
   <img src="https://img.shields.io/badge/RICH-2b2b2b?style=for-the-badge&logoColor=white" alt="Rich" />
-  <img src="https://img.shields.io/badge/PROMPT%20TOOLKIT-4b8bbe?style=for-the-badge&logoColor=white" alt="prompt_toolkit" />
   <img src="https://img.shields.io/badge/CLICK-d1d1d1?style=for-the-badge&logoColor=black" alt="Click" />
-  <img src="https://img.shields.io/badge/DUCKDUCKGO-DE5833?style=for-the-badge&logo=duckduckgo&logoColor=white" alt="DuckDuckGo" />
   <img src="https://img.shields.io/badge/DOCKER-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
 </p>
 
