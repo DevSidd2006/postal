@@ -27,7 +27,7 @@ class HookSystem:
                     f.write(hook.script)
                     script_path = f.name
                 try:
-                    os.chmod(script_path, 0o755)
+                    os.chmod(script_path, 0o700)
                     await self._run_command(script_path, hook.timeout_sec, env)
                 finally:
                     os.unlink(script_path)
