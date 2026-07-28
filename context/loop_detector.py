@@ -44,7 +44,7 @@ class LoopDetector:
                 for cycle_len in range(2, min(self.max_cycle_length + 1, len(history) // 2 + 1)):
                     recent = history[-cycle_len*2:]
                     if recent[:cycle_len] == recent[cycle_len:]:
-                        return f"Detected repeating cycle of length: {self.max_cycle_length}"
+                        return f"Detected repeating cycle of length: {cycle_len}"
 
         return None
 

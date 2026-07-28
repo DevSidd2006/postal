@@ -135,7 +135,7 @@ class Agent:
                 )
 
                 self.session.loop_detector.record_action(
-                    "response",
+                    "tool_call",
                     tool_name=tool_call.name,
                     args=tool_call.arguments
                 )
