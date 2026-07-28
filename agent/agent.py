@@ -6,6 +6,7 @@ from config.config import Config
 from agent.events import AgentEvent, AgentEventType
 from client.response import StreamEventType, TokenUsage, ToolCall, ToolResultMessage
 from context.compaction import ChatCompactor
+from prompts.system import create_loop_breaker_prompt
 from tools.base import ToolConfirmation
 
 class Agent:
@@ -111,6 +112,10 @@ class Agent:
         
             if response_text:
                 yield AgentEvent.text_complete(response_text)
+                self.session.loop_detector.record_action(
+                    'response',
+                    text=response_text
+                )
             
             if not tool_calls:
                 if usage:
@@ -122,10 +127,17 @@ class Agent:
             tool_call_results: list[ToolResultMessage] = []
 
             for tool_call in tool_calls:
+
                 yield AgentEvent.tool_call_start(
                     tool_call.call_id,
                     tool_call.name,
                     tool_call.arguments
+                )
+
+                self.session.loop_detector.record_action(
+                    "response",
+                    tool_name=tool_call.name,
+                    args=tool_call.arguments
                 )
 
                 result = await self.session.tool_registry.invoke(
@@ -155,6 +167,15 @@ class Agent:
                     tool_result.tool_call_id,
                     tool_result.content,
                 )
+
+            loop_detection_err = self.session.loop_detector.check_for_loop()
+                            
+            if loop_detection_err:
+            
+                loop_prompt = create_loop_breaker_prompt(loop_detection_err)
+            
+                self.session.context_manager.add_user_message(loop_prompt)
+                continue
     
     async def __aenter__(self) -> Agent:
         await self.session.initalize()
