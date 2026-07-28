@@ -192,11 +192,8 @@ class Repl:
     def _farewell(self, agent: Agent) -> None:
         """Leave the session id behind so the session can be picked up later."""
         session = agent.session
-        turns = session.turns
 
         line = Text.assemble(("Session ", "muted"), (session.session_id, "subtitle"))
-        line.append("  ·  ", style="dim")
-        line.append(f"{turns} turn{'' if turns == 1 else 's'}", style="muted")
 
         self.console.print()
         self.console.print(line)
