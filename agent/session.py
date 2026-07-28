@@ -6,6 +6,7 @@ from client.response import TokenUsage
 from config.config import Config
 from config.loader import get_data_dir
 from context.compaction import ChatCompactor
+from context.loop_detector import LoopDetector
 from context.manager import ContextManager
 from hooks.hook_system import HookSystem
 from safety.approval import ApprovalManager
@@ -34,6 +35,7 @@ class Session:
             self.config.approval, 
             self.config.cwd, 
         )
+        self.loop_detector = LoopDetector()
         self.hook_system = HookSystem(config)
         self.session_id = str(uuid.uuid4()) # Unique identifiers to resume sessions
         self.created_at = datetime.now()
