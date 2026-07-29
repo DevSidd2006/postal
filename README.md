@@ -22,7 +22,7 @@
 Postal, an open-source AI coding agent that runs in your terminal. It connects to LLMs through OpenRouter, reads and edits your code with a built-in tool set, runs shell commands, and streams everything through a full-screen TUI.
 
 <p align="center">
-  <img src="assets/demo_smooth.gif" alt="Postal planning and executing a multi-step task in the terminal" width="100%" />
+  <img src="assets/postaldemo.gif" alt="Postal planning and executing a multi-step task in the terminal" width="100%" />
 </p>
 
 > [!WARNING]
