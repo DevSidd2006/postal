@@ -107,18 +107,9 @@ Type `/` in the TUI to drive the session directly:
 | `/mcp` | Show MCP server status |
 | `/exit`, `/quit` | Leave the agent |
 
-<<<<<<< Updated upstream
-=======
 ## Approvals
 
 Before Postal runs anything that changes state, the approval policy decides whether it goes ahead, asks you, or is refused outright. Read-only tools (`read`, `grep`, `glob`, `list_directories`, `plan`) never prompt, so a policy only affects writes, shell commands, network calls, memory writes, MCP tools, and sub-agent runs.
-
-Set it with the `approval` key in your config file, or switch it any time with `/approval`:
-
-```toml
-# ~/.config/postal/config.toml (user-wide), or .postal/config.toml (per project)
-approval = "on_request"
-```
 
 | Value | Badge | Behaviour |
 | --- | --- | --- |
