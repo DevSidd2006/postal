@@ -2,7 +2,7 @@ from __future__ import annotations
 from enum import Enum
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
 from config.credentials import load_credentials
@@ -18,6 +18,30 @@ class ModelConfig(BaseModel):
     ) # clarity of the model
 
     context_window: int = 256_000
+
+class ReasoningConfig(BaseModel):
+    """How much the model thinks, and whether that thinking is shown."""
+
+    enabled: bool = True
+
+    # OpenRouter takes either an effort level or a token budget, never both.
+    effort: Literal["minimal", "low", "medium", "high"] | None = None
+    max_tokens: int | None = Field(default=None, gt=0)
+
+    # Off means the model still reasons, we just do not render it.
+    visible: bool = True
+
+    def to_request_payload(self) -> dict[str, Any] | None:
+        """The `reasoning` body OpenRouter expects, or None to leave it alone."""
+
+        if not self.enabled:
+            return None
+        if self.max_tokens is not None:
+            return {"max_tokens": self.max_tokens}
+        if self.effort is not None:
+            return {"effort": self.effort}
+        return {"enabled": True}
+
 
 class ShellEnvironmentConfig(BaseModel):
     ignore_default_excludes: bool = False # for filtering keys, secrets
@@ -133,6 +157,8 @@ class Config(BaseModel):
     shell_environment: ShellEnvironmentConfig = Field(
         default_factory=ShellEnvironmentConfig
     )
+
+    reasoning: ReasoningConfig = Field(default_factory=ReasoningConfig)
 
     approval: ApprovalPolicy = ApprovalPolicy.ON_REQUEST
 

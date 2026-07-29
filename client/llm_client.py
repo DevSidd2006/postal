@@ -6,6 +6,34 @@ from client.response import TextDelta, TokenUsage, StreamEvent, StreamEventType,
 from config.config import Config
 
 
+def _token_usage(usage: Any) -> TokenUsage:
+    return TokenUsage(
+        prompt_tokens=usage.prompt_tokens,
+        completion_tokens=usage.completion_tokens,
+        total_tokens=usage.total_tokens,
+        cached_tokens=(
+            getattr(usage.prompt_tokens_details, "cached_tokens", 0)
+            if usage.prompt_tokens_details else 0
+        ),
+        reasoning_tokens=(
+            getattr(usage.completion_tokens_details, "reasoning_tokens", 0) or 0
+            if getattr(usage, "completion_tokens_details", None) else 0
+        ),
+    )
+
+
+def _reasoning_text(payload: Any) -> str | None:
+    """Reasoning arrives as `reasoning` on OpenRouter and `reasoning_content`
+    on providers that follow the DeepSeek shape. Neither field is in the
+    OpenAI schema, so both land in the model's extras."""
+
+    for field in ("reasoning", "reasoning_content"):
+        value = getattr(payload, field, None)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
 class LLMClient:
     def __init__(self, config: Config) -> None:
         self._client: AsyncOpenAI | None = None
@@ -70,6 +98,12 @@ class LLMClient:
             kwargs['tools'] = self._build_tools(tools)
             kwargs['tool_choice'] = 'auto'
 
+        # OpenRouter's own extension, so it rides along in extra_body. Models
+        # that cannot reason ignore it.
+        reasoning = self.config.reasoning.to_request_payload()
+        if reasoning:
+            kwargs['extra_body'] = {'reasoning': reasoning}
+
         for attempt in range(self._max_retries + 1):
             emitted = False
             try:
@@ -118,15 +152,7 @@ class LLMClient:
 
         async for chunk in response:
             if hasattr(chunk, "usage") and chunk.usage:
-                usage = TokenUsage(
-                    prompt_tokens=chunk.usage.prompt_tokens,
-                    completion_tokens=chunk.usage.completion_tokens,
-                    total_tokens=chunk.usage.total_tokens,
-                    cached_tokens=(
-                        getattr(chunk.usage.prompt_tokens_details, "cached_tokens", 0)
-                        if chunk.usage.prompt_tokens_details else 0
-                    ),
-                )
+                usage = _token_usage(chunk.usage)
 
             if not chunk.choices:
                 continue
@@ -136,6 +162,13 @@ class LLMClient:
 
             if choice.finish_reason:
                 finish_reason = choice.finish_reason
+
+            reasoning = _reasoning_text(delta)
+            if reasoning:
+                yield StreamEvent(
+                    type=StreamEventType.REASONING_DELTA,
+                    reasoning_delta=reasoning,
+                )
 
             if delta.content:
                 yield StreamEvent(
@@ -217,19 +250,12 @@ class LLMClient:
 
         usage = None
         if response.usage:
-            usage = TokenUsage(
-                prompt_tokens=response.usage.prompt_tokens,
-                completion_tokens=response.usage.completion_tokens,
-                total_tokens=response.usage.total_tokens,
-                cached_tokens=(
-                    getattr(response.usage.prompt_tokens_details, "cached_tokens", 0)
-                    if response.usage.prompt_tokens_details else 0
-                ),
-            )
+            usage = _token_usage(response.usage)
 
         return StreamEvent(
             type=StreamEventType.MESSAGE_COMPLETE,
             text_delta=text_delta,
+            reasoning_delta=_reasoning_text(message),
             tool_calls=tool_calls,
             finish_reason=choice.finish_reason,
             usage=usage,

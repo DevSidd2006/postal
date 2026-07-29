@@ -76,6 +76,7 @@ def build_key_bindings(tui: "TUI") -> KeyBindings:
     return bindings
 
 TOOL_ICON = "◇"
+REASONING_ICON = "✻"
 
 THINKING_WORDS = [
     "Thinking…",
@@ -127,6 +128,9 @@ class TUI:
         self.config = config
         self.cwd = config.cwd
         self._assistant_stream_open = False
+        self._reasoning_stream_open = False
+        self._reasoning_line = ""
+        self._reasoning_started_at = 0.0
         self.tool_args_by_call_id: dict[str, dict[str, Any]] = {}
         self.tool_started_at: dict[str, float] = {}
 
@@ -229,6 +233,50 @@ class TUI:
         self._thinking_started_at = 0.0
         self._turn_tokens = 0
 
+
+    @property
+    def show_reasoning(self) -> bool:
+        return self.config.reasoning.visible
+
+    def begin_reasoning(self) -> None:
+        if not self.show_reasoning or self._reasoning_stream_open:
+            return
+
+        self._stop_spinner()
+        self._reasoning_stream_open = True
+        self._reasoning_line = ""
+        self._reasoning_started_at = time.monotonic()
+
+        self.console.print()
+        self.console.print(
+            Text.assemble((f"{REASONING_ICON} ", "reasoning.mark"), ("Thinking", "subtitle"))
+        )
+
+    def stream_reasoning_delta(self, content: str) -> None:
+        """Reasoning is printed a line at a time so the gutter can wrap with it."""
+
+        if not self._reasoning_stream_open:
+            return
+
+        self._reasoning_line += content
+        while "\n" in self._reasoning_line:
+            line, self._reasoning_line = self._reasoning_line.split("\n", 1)
+            self._print_reasoning_line(line)
+
+    def end_reasoning(self) -> None:
+        if not self._reasoning_stream_open:
+            return
+
+        if self._reasoning_line.strip():
+            self._print_reasoning_line(self._reasoning_line)
+        self._reasoning_line = ""
+        self._reasoning_stream_open = False
+
+        elapsed = format_elapsed(time.monotonic() - self._reasoning_started_at)
+        self.console.print(Text(f"  thought for {elapsed}", style="dim"))
+
+    def _print_reasoning_line(self, line: str) -> None:
+        self.console.print(Gutter(Text(line.rstrip(), style="reasoning"), style="reasoning.mark"))
 
     def begin_assistant(self) -> None:
         self._stop_spinner()
@@ -831,6 +879,10 @@ class TUI:
 
         line.append("   ·   ", style="muted")
         line.append(f"{completion_tokens:,} out", style="muted")
+        reasoning_tokens = usage.get("reasoning_tokens", 0) or 0
+        if reasoning_tokens:
+            line.append("   ·   ", style="muted")
+            line.append(f"{reasoning_tokens:,} thinking", style="muted")
         if cached_tokens:
             line.append("   ·   ", style="muted")
             line.append(f"{cached_tokens:,} cached", style="muted")

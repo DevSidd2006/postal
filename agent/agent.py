@@ -44,6 +44,8 @@ class Agent:
         for i in range(max_turns):
 
             response_text = ""
+            reasoning_text = ""
+            reasoning_done = False
 
             # Prune before compacting: a tool-heavy turn can blow past the context
             # window without ever reaching the end of the loop.
@@ -69,29 +71,52 @@ class Agent:
                 tools=tool_schemas if tool_schemas else None, 
                 stream=True
             ):
-                if event.type == StreamEventType.TEXT_DELTA:
+                if event.type == StreamEventType.REASONING_DELTA:
+                    if not event.reasoning_delta:
+                        continue
+                    reasoning_text += event.reasoning_delta
+                    yield AgentEvent.reasoning_delta(event.reasoning_delta)
+                elif event.type == StreamEventType.TEXT_DELTA:
                     if not event.text_delta:
                         continue
                     content = event.text_delta.content
+                    # Thinking always ends where the answer begins.
+                    if reasoning_text and not reasoning_done:
+                        reasoning_done = True
+                        yield AgentEvent.reasoning_complete(reasoning_text)
                     response_text += content
                     yield AgentEvent.text_delta(content)
                 elif event.type == StreamEventType.TOOL_CALL_COMPLETE:
                     if event.tool_call:
                         tool_calls.append(event.tool_call)
                 elif event.type == StreamEventType.MESSAGE_COMPLETE:
+                    if event.reasoning_delta and not reasoning_text:
+                        reasoning_text = event.reasoning_delta
+                        yield AgentEvent.reasoning_delta(event.reasoning_delta)
                     if event.usage:
                         usage = event.usage
                         self.session.last_usage = event.usage
                         self.session.turn_usage += event.usage
                         yield AgentEvent.usage(self.session.turn_usage)
                     if event.text_delta:
+                        if reasoning_text and not reasoning_done:
+                            reasoning_done = True
+                            yield AgentEvent.reasoning_complete(reasoning_text)
                         response_text += event.text_delta.content
                         yield AgentEvent.text_delta(event.text_delta.content)
                     if event.tool_calls:
                         tool_calls.extend(event.tool_calls)
                 elif event.type == StreamEventType.ERROR:
+                    if reasoning_text and not reasoning_done:
+                        reasoning_done = True
+                        yield AgentEvent.reasoning_complete(reasoning_text)
                     yield AgentEvent.agent_error(event.error or "Unknown error occurred.")
                     return
+
+            # Reasoning with no answer after it: the model went straight to
+            # tool calls, so nothing else will close the block.
+            if reasoning_text and not reasoning_done:
+                yield AgentEvent.reasoning_complete(reasoning_text)
 
             self.session.context_manager.add_assistant_message(
                 response_text or None,

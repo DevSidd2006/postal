@@ -28,6 +28,9 @@ AGENT_THEME = Theme(
         "user": f"bold {PALETTE['bright']}",
         "assistant": PALETTE["silver"],
 
+        "reasoning": f"italic {PALETTE['graphite']}",
+        "reasoning.mark": PALETTE["violet"],
+
         "tool": f"bold {PALETTE['accent']}",
         "tool.read": PALETTE["read"],
         "tool.write": PALETTE["silver"],

@@ -22,6 +22,7 @@ HELP_TEXT = """\
 - `/config` - Show current configuration
 - `/model <name>` - Change the model
 - `/approval <mode>` - Change approval mode
+- `/thinking [on|off|low|medium|high]` - Show or configure model reasoning
 - `/stats` - Show session statistics
 - `/tools` - List available tools
 - `/mcp` - Show MCP server status
@@ -79,6 +80,8 @@ class SlashCommands:
             self._model(args)
         elif name == "approval":
             self._approval(agent, args)
+        elif name in {"thinking", "reasoning"}:
+            self._thinking(args)
         elif name == "stats":
             self._stats(agent)
         elif name == "tools":
@@ -114,6 +117,7 @@ class SlashCommands:
             ("Context window", f"{self.config.model.context_window:,}"),
             ("Directory", str(self.config.cwd)),
             ("Approval", f"{policy.label} - {policy.summary}"),
+            ("Thinking", self._thinking_summary()),
             ("Max turns", str(self.config.max_turns)),
             ("Max tool output tokens", f"{self.config.max_tool_output_tokens:,}"),
             ("Hooks enabled", str(self.config.hooks_enabled)),
@@ -152,6 +156,77 @@ class SlashCommands:
         self.config.approval = policy
         agent.session.approval_manager.approval_policy = policy
         self.console.print(f"[success]Approval mode set to {policy.label}[/success]")
+
+    def _thinking_summary(self) -> str:
+        reasoning = self.config.reasoning
+        if not reasoning.enabled:
+            return "off"
+
+        detail = (
+            f"{reasoning.max_tokens:,} tokens"
+            if reasoning.max_tokens is not None
+            else reasoning.effort or "default"
+        )
+        return f"{'shown' if reasoning.visible else 'hidden'} - {detail}"
+
+    def _thinking(self, args: list[str]) -> None:
+        reasoning = self.config.reasoning
+
+        if not args:
+            self._thinking_state()
+            self.console.print(
+                Text("Usage: /thinking <on|off|low|medium|high|minimal>", style="muted")
+            )
+            return
+
+        choice = args[0].lower()
+
+        if choice in {"on", "show"}:
+            reasoning.enabled = True
+            reasoning.visible = True
+        elif choice in {"off", "hide"}:
+            # The model keeps reasoning, we just stop printing it.
+            reasoning.visible = False
+        elif choice in {"minimal", "low", "medium", "high"}:
+            reasoning.enabled = True
+            reasoning.visible = True
+            reasoning.effort = choice
+            reasoning.max_tokens = None
+        elif choice == "none":
+            reasoning.enabled = False
+            reasoning.visible = False
+        else:
+            self.console.print(f"[error]Unknown thinking option: {args[0]}[/error]")
+            self.console.print(
+                Text("Usage: /thinking <on|off|low|medium|high|minimal|none>", style="muted")
+            )
+            return
+
+        self._thinking_state()
+
+    def _thinking_state(self) -> None:
+        reasoning = self.config.reasoning
+
+        if not reasoning.enabled:
+            self.console.print(Text("Thinking is off - no reasoning requested.", style="muted"))
+            return
+
+        if reasoning.max_tokens is not None:
+            budget = f"{reasoning.max_tokens:,} token budget"
+        elif reasoning.effort is not None:
+            budget = f"{reasoning.effort} effort"
+        else:
+            budget = "provider default"
+
+        line = Text.assemble(
+            ("thinking ", "muted"),
+            ("shown" if reasoning.visible else "hidden", "success" if reasoning.visible else "subtitle"),
+            (f" — {budget}", "muted"),
+        )
+        self.console.print(line)
+        self.console.print(
+            Text("Models without reasoning support simply ignore this.", style="dim")
+        )
 
     def _approval_modes(self) -> None:
         table = Table.grid(padding=(0, 2))

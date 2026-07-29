@@ -25,6 +25,14 @@ async def stream_turn(tui: TUI, agent: Agent, message: str) -> str | None:
             elif event.type == AgentEventType.USAGE:
                 tui.update_turn_usage(event.data.get("usage"))
 
+            elif event.type == AgentEventType.REASONING_DELTA:
+                tui.begin_reasoning()
+                tui.stream_reasoning_delta(event.data.get("content", ""))
+
+            elif event.type == AgentEventType.REASONING_COMPLETE:
+                tui.end_reasoning()
+                tui.start_thinking(label)
+
             elif event.type == AgentEventType.TEXT_DELTA:
                 if not streaming:
                     tui.begin_assistant()
@@ -73,6 +81,7 @@ async def stream_turn(tui: TUI, agent: Agent, message: str) -> str | None:
                 break
     finally:
         tui.stop_thinking()
+        tui.end_reasoning()
         if streaming:
             tui.end_assistant()
 

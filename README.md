@@ -50,7 +50,18 @@ postal login --paste    # paste an API key instead of browser OAuth
 postal logout           # remove the saved API key
 ```
 
-Model, temperature, and context window live in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`.
+Model, temperature, and context window live in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`:
+
+```toml
+[model]
+name = "anthropic/claude-sonnet-4.5"
+
+[reasoning]
+enabled = true     # ask the model to think (ignored by models that cannot)
+effort = "medium"  # "minimal", "low", "medium", "high", or omit for the provider default
+# max_tokens = 4000  # a thinking budget instead of an effort level
+visible = true     # stream the thinking into the transcript
+```
 
 ## Why Postal?
 
@@ -84,6 +95,7 @@ Model, temperature, and context window live in `~/.config/postal/config.toml`, w
 | | |
 | --- | --- |
 | **Interactive TUI** | Full-screen terminal interface built on Rich, with streaming responses, live tool call output, and token usage tracking. |
+| **Visible thinking** | Reasoning models stream their thinking into the transcript before the answer, dimmed under a gutter. Tune or hide it with `/thinking`. |
 | **Slash commands** | Control the session without leaving it. See [Slash commands](#slash-commands). |
 | **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting. |
 
@@ -100,6 +112,7 @@ Type `/` in the TUI to drive the session directly:
 | `/help` | Show all commands |
 | `/model <name>` | Switch models mid-session |
 | `/approval <mode>` | Switch the approval policy mid-session |
+| `/thinking [on\|off\|low\|medium\|high]` | Show, hide, or retune the model's reasoning |
 | `/clear` | Clear conversation history |
 | `/config` | Show the active configuration |
 | `/stats` | Session statistics: tokens, elapsed time, tool calls |

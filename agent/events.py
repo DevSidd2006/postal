@@ -19,6 +19,10 @@ class AgentEventType(str, Enum):
     TEXT_DELTA = "text_delta"
     TEXT_COMPLETE = "text_complete"
 
+    # Reasoning ("thinking") streaming, only for models that expose it
+    REASONING_DELTA = "reasoning_delta"
+    REASONING_COMPLETE = "reasoning_complete"
+
     # Tool Calls
     TOOL_CALL_START = 'tool_call_start'
     TOOL_CALL_COMPLETE = 'tool_call_complete'
@@ -104,6 +108,30 @@ class AgentEvent:
             }
         )
     
+    @classmethod
+    def reasoning_delta(
+        cls,
+        content: str
+    ) -> AgentEvent:
+        return cls(
+            type=AgentEventType.REASONING_DELTA,
+            data={
+                "content": content
+            }
+        )
+
+    @classmethod
+    def reasoning_complete(
+        cls,
+        content: str
+    ) -> AgentEvent:
+        return cls(
+            type=AgentEventType.REASONING_COMPLETE,
+            data={
+                "content": content
+            }
+        )
+
     @classmethod
     def tool_call_start(cls, call_id: str, name: str, arguments: dict[str, Any]):
         return cls(

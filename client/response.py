@@ -13,6 +13,7 @@ class TextDelta:
 
 class StreamEventType(str, Enum):
     TEXT_DELTA = "text_delta"
+    REASONING_DELTA = "reasoning_delta"
     MESSAGE_COMPLETE = "message_complete"
     ERROR = "error"
 
@@ -26,6 +27,7 @@ class TokenUsage:
     completion_tokens: int = 0
     total_tokens: int = 0
     cached_tokens: int = 0
+    reasoning_tokens: int = 0
 
     def __add__(self, other: TokenUsage):
         return TokenUsage(
@@ -33,6 +35,7 @@ class TokenUsage:
             completion_tokens=self.completion_tokens + other.completion_tokens,
             total_tokens=self.total_tokens + other.total_tokens,
             cached_tokens=self.cached_tokens + other.cached_tokens,
+            reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
         )
     
 @dataclass
@@ -51,6 +54,7 @@ class ToolCall:
 class StreamEvent:
     type: StreamEventType
     text_delta: TextDelta | None = None
+    reasoning_delta: str | None = None
     tool_calls: list[ToolCall] = field(default_factory=list)
     error: str | None = None
     finish_reason: str | None = None
