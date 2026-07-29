@@ -3,9 +3,15 @@
 </h1>
 
 <p align="center">
+  <b>An open-source AI coding agent that lives in your terminal.</b><br />
+  Plans, edits, runs, and reviews code with any model on OpenRouter.
+</p>
+
+<p align="center">
   <a href="https://github.com/andrefetch/postal/stargazers"><img src="https://img.shields.io/github/stars/andrefetch/postal?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub stars" /></a>
   <a href="https://github.com/andrefetch/postal/network/members"><img src="https://img.shields.io/github/forks/andrefetch/postal?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub forks" /></a>
   <a href="https://github.com/andrefetch/postal/issues"><img src="https://img.shields.io/github/issues/andrefetch/postal?style=for-the-badge&logo=github&logoColor=white&color=181717" alt="GitHub issues" /></a>
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/PYTHON-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
@@ -19,19 +25,41 @@
   <img src="https://img.shields.io/badge/DOCKER-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
 </p>
 
-Postal, an open-source AI coding agent that runs in your terminal. It connects to LLMs through OpenRouter, reads and edits your code with a built-in tool set, runs shell commands, and streams everything through a full-screen TUI.
-
 <p align="center">
   <img src="assets/postaldemo.gif" alt="Postal planning and executing a multi-step task in the terminal" width="100%" />
 </p>
 
-## Functionality
+Postal connects to LLMs through OpenRouter, reads and edits your code with a built-in tool set, runs shell commands, delegates to specialized sub-agents, and streams everything through a full-screen TUI. Every mutating action goes through an approval policy you control, so it is as autonomous or as careful as you want it to be.
 
-### Interface 
-| | |
-| --- | --- |
-| **Interactive TUI** | Full-screen terminal interface built on Rich, with streaming responses, live tool call output, and token usage tracking. |
-| **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting. |
+## Quickstart
+
+Two commands and you are talking to an agent in your own repo:
+
+```bash
+pip install postalcli
+postal login    # opens your browser to authorize with OpenRouter
+postal          # start the interactive TUI
+```
+
+More ways to run it:
+
+```bash
+postal "your prompt"    # single-shot mode, great for scripting
+postal --cwd /path      # run against a different working directory
+postal login --paste    # paste an API key instead of browser OAuth
+postal logout           # remove the saved API key
+```
+
+Model, temperature, and context window live in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`.
+
+## Why Postal?
+
+- **Bring any model.** OpenRouter as the backend means one login gives you Claude, GPT, Gemini, DeepSeek, open-weight models, and whatever ships next. No vendor lock-in.
+- **Safety is a first-class feature.** Six approval policies, dangerous-command rejection, and confirmation for anything outside the working directory. You choose the risk level, not the agent.
+- **It survives long sessions.** Context pruning reclaims tokens from stale tool output, and when the window fills up, Postal compacts history into a continuation brief and keeps going instead of erroring out.
+- **Hackable by design.** A readable Python codebase built on Rich, Click, and Pydantic. Adding a tool or a sub-agent is a small, well-marked change.
+
+## What it can do
 
 ### Tools
 | | |
@@ -46,35 +74,91 @@ Postal, an open-source AI coding agent that runs in your terminal. It connects t
 ### Agent
 | | |
 | --- | --- |
-| **Approvals** | Mutating tool calls are gated by an approval policy, from confirming every write to running unattended. See [Approvals](#approvals). |
 | **Sub-agents** | Specialized agents the main agent can delegate to: `codebase_investigator`, `code_reviewer`, `software_architect`, `test_writer`, `debugger`. |
+| **Approvals** | Mutating tool calls are gated by an approval policy, from confirming every write to running unattended. See [Approvals](#approvals). |
 | **`AGENTS.md`** | Project instructions are picked up automatically and followed while working. |
 | **Context pruning** | Old tool outputs are cleared once they pile up past the recent working set, reclaiming tokens without touching the conversation itself. |
 | **Compaction** | When the context window fills up, history is summarized into a continuation brief and the session resumes from it instead of erroring out. |
-| **OpenRouter backend** | Authenticate once with `postal login` (browser OAuth) or paste an API key. Model, temperature, and context window are configurable in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`. |
 
-## Getting started
+### Interface
+| | |
+| --- | --- |
+| **Interactive TUI** | Full-screen terminal interface built on Rich, with streaming responses, live tool call output, and token usage tracking. |
+| **Slash commands** | Control the session without leaving it. See [Slash commands](#slash-commands). |
+| **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting. |
 
-```bash
-# 1. Install Postal
-pip install postalcli
+<p align="center">
+  <img src="assets/postalother.gif" alt="Postal streaming tool calls and edits in the TUI" width="100%" />
+</p>
 
-# 2. Log in (opens your browser to authorize with OpenRouter)
-postal login
-postal login --paste   # or paste an API key directly
+## Slash commands
 
-# 3. Run it
-postal                 # interactive mode
-postal "your prompt"   # single-shot mode
-postal --cwd /path     # run against a different working directory
+Type `/` in the TUI to drive the session directly:
 
-# Remove the saved API key
-postal logout
+| Command | What it does |
+| --- | --- |
+| `/help` | Show all commands |
+| `/model <name>` | Switch models mid-session |
+| `/approval <mode>` | Switch the approval policy mid-session |
+| `/clear` | Clear conversation history |
+| `/config` | Show the active configuration |
+| `/stats` | Session statistics: tokens, elapsed time, tool calls |
+| `/tools` | List available tools |
+| `/mcp` | Show MCP server status |
+| `/exit`, `/quit` | Leave the agent |
+
+<<<<<<< Updated upstream
+=======
+## Approvals
+
+Before Postal runs anything that changes state, the approval policy decides whether it goes ahead, asks you, or is refused outright. Read-only tools (`read`, `grep`, `glob`, `list_directories`, `plan`) never prompt, so a policy only affects writes, shell commands, network calls, memory writes, MCP tools, and sub-agent runs.
+
+Set it with the `approval` key in your config file, or switch it any time with `/approval`:
+
+```toml
+# ~/.config/postal/config.toml (user-wide), or .postal/config.toml (per project)
+approval = "on_request"
 ```
 
+| Value | Badge | Behaviour |
+| --- | --- | --- |
+| `on_request` *(default)* | `ask` | Confirm every mutating tool call. Commands matched as known-safe (`ls`, `git status`, `grep`, …) run without asking. |
+| `auto_edit` | `auto-edit` | File edits and writes inside the working directory go through unprompted; shell commands still need confirmation unless known-safe. |
+| `auto` | `auto` | Everything runs except dangerous commands, which are rejected. |
+| `on_fail` | `on fail` | Currently identical to `auto`. Reserved for prompting after a failed tool call, which is not implemented yet. |
+| `never` | `read-only` | Rejects anything that isn't a known-safe command. Nothing gets written, and you are never prompted. |
+| `yolo` | `yolo` | Approves everything, including commands matched as dangerous. Only use this in a sandbox or container. |
+
+Two rules apply on top of the policy, and no policy except `yolo` overrides them:
+
+- **Dangerous commands are rejected.** `rm -rf /`, `dd if=`, `mkfs`, `shutdown`, `curl … | bash`, fork bombs, and similar patterns are refused before the shell ever sees them (the full list is `DANGEROUS_PATTERNS` in `safety/approval.py`).
+- **Anything touching a path outside the working directory is confirmed**, however permissive the policy is (`never` rejects it instead).
+
+The active policy is printed at startup and shown in the prompt badge, colour-coded by risk: normal for `ask`, `auto-edit` and `read-only`, amber for `auto` and `on fail`, red for `yolo`.
+
+### Answering a prompt
+
+When confirmation is needed, Postal pauses the stream and shows the tool, its arguments, the command it wants to run, and a diff for file edits:
+
+```text
+❎ edit  needs your approval
+Edit postal/config/config.py
+╰️---------------------------------------------️
+╿ approval: ApprovalPolicy = ON_REQUEST ╿
+╿+ approval: ApprovalPolicy = AUTO_EDIT  ╿
+╰️---------------------------------------------️
+y accept  ·   n reject  ·   esc reject   approval: ask - confirm every mutating tool
+```
+
+`y`, `a` or `enter` approves; `n`, `d`, `q`, `esc` or `ctrl+c` rejects. A rejection is fed back to the agent as a failed tool call, so it can pick a different approach rather than stopping.
+
+> [!NOTE]
+> One gap to be aware of: sub-agents run with their own auto-approving manager, so tool calls they make are not routed to you. Extending confirmations to sub-agents is on the [roadmap](#roadmap).
+
+>>>>>>> Stashed changes
 ## Project instructions (`AGENTS.md`)
 
-Drop an `AGENTS.md` at the root of your repo and Postal loads it as developer instructions at startup, use it for build and test commands, code style, or anything else the agent should know before touching your code
+Drop an `AGENTS.md` at the root of your repo and Postal loads it as developer instructions at startup. Use it for build and test commands, code style, or anything else the agent should know before touching your code.
 
 Postal walks up from the working directory to the repository root, so running `postal` inside a subdirectory still picks up the root file. Every `AGENTS.md` found along the way is included, ordered outermost first.
 
@@ -96,7 +180,15 @@ The scope of an `AGENTS.md` file is the directory tree it sits in, and the more 
 Currently being worked on:
 
 - **Session management**: saving, resuming, and switching between sessions.
-- **Approval flow**: prompting before file edits and shell commands is in place; still to come is switching the mode mid-session and extending confirmations to sub-agents.
+- **Approval flow**: extending confirmations to sub-agent tool calls, and implementing the `on_fail` policy.
+
+Have an idea? [Open an issue](https://github.com/andrefetch/postal/issues), feature discussions are very welcome.
+
+## Contributing
+
+Contributions of every size are appreciated, from typo fixes to new tools and sub-agents. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started, and check the [open issues](https://github.com/andrefetch/postal/issues) for something to pick up.
+
+If Postal is useful to you, **a star on the repo genuinely helps** the project reach more developers. ⭐
 
 ## License
 
