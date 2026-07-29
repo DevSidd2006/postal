@@ -25,9 +25,6 @@ Postal, an open-source AI coding agent that runs in your terminal. It connects t
   <img src="assets/postaldemo.gif" alt="Postal planning and executing a multi-step task in the terminal" width="100%" />
 </p>
 
-> [!WARNING]
-> **Work in progress.** The agent loop, tool calling, terminal UI, and approval flow work end to end. The [approval policy](#approvals) is set in config (`approval = "on_request"` by default), there is **no way to switch it mid-session yet**. Sub-agents still auto-approve their own tool calls, so use Postal in a directory you don't mind it touching
-
 ## Functionality
 
 ### Interface 
