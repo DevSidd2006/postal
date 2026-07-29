@@ -30,14 +30,12 @@ Postal, an open-source AI coding agent that runs in your terminal. It connects t
 
 ## Functionality
 
-### Interface
-| | |
+### Interface | |
 | --- | --- |
 | **Interactive TUI** | Full-screen terminal interface built on Rich, with streaming responses, live tool call output, and token usage tracking. |
 | **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting. |
 
-### Tools
-| | |
+### Tools | |
 | --- | --- |
 | **Files** | `read`, `write`, `edit`, `grep`, `glob`, and `list_directories` for working with a codebase. |
 | **Shell** | The `shell` tool executes commands in the working directory. |
@@ -46,8 +44,7 @@ Postal, an open-source AI coding agent that runs in your terminal. It connects t
 | **Memory** | Key-value storage that survives across sessions. |
 | **MCP** | Connects to external MCP servers for additional tools and data sources. |
 
-### Agent
-| | |
+### Agent | |
 | --- | --- |
 | **Approvals** | Mutating tool calls are gated by an approval policy, from confirming every write to running unattended. See [Approvals](#approvals). |
 | **Sub-agents** | Specialized agents the main agent can delegate to: `codebase_investigator`, `code_reviewer`, `software_architect`, `test_writer`, `debugger`. |
@@ -107,13 +104,13 @@ The active policy is printed at startup and shown in the prompt badge, colour-co
 When confirmation is needed, Postal pauses the stream and shows the tool, its arguments, the command it wants to run, and a diff for file edits:
 
 ```text
-⏵ edit  needs your approval
+❎ edit  needs your approval
 Edit postal/config/config.py
-╭─────────────────────────────────────────╮
-│ - approval: ApprovalPolicy = ON_REQUEST │
-│ + approval: ApprovalPolicy = AUTO_EDIT  │
-╰─────────────────────────────────────────╯
-y accept  ·  n reject  ·  esc reject   approval: ask - confirm every mutating tool
+╰️---------------------------------------------️
+╿ approval: ApprovalPolicy = ON_REQUEST ╿
+╿+ approval: ApprovalPolicy = AUTO_EDIT  ╿
+╰️---------------------------------------------️
+y accept  ·   n reject  ·   esc reject   approval: ask - confirm every mutating tool
 ```
 
 `y`, `a` or `enter` approves; `n`, `d`, `q`, `esc` or `ctrl+c` rejects. A rejection is fed back to the agent as a failed tool call, so it can pick a different approach rather than stopping.
@@ -145,7 +142,6 @@ The scope of an `AGENTS.md` file is the directory tree it sits in, and the more 
 Currently being worked on:
 
 - **Session management**: saving, resuming, and switching between sessions.
-- **Slash commands**: in-session commands (e.g. `/approval` to switch approval mode) instead of only config-file settings.
 - **Approval flow**: prompting before file edits and shell commands is in place; still to come is switching the mode mid-session and extending confirmations to sub-agents.
 
 ## License
