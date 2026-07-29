@@ -5,7 +5,7 @@ from pydantic import BaseModel, ValidationError
 from pydantic.json_schema import model_json_schema
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from config.config import Config
 
@@ -112,6 +112,9 @@ class ToolConfirmation:
 class ToolInvocation:
     params: dict[str, Any]
     cwd: Path
+    # Parent session's confirmation callback, so tools that spawn nested
+    # agents (subagents) keep routing approvals through the user.
+    confirmation_callback: Callable[['ToolConfirmation'], Awaitable[bool]] | None = None
 
 class Tool(abc.ABC):
     name: str = "base_tool"

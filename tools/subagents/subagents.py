@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from config import Config
 from dataclasses import dataclass
 from tools import Tool, ToolInvocation
-from tools.base import ToolResult, ToolKind
+from tools.base import ToolConfirmation, ToolResult, ToolKind
 
 class SubagentParams(BaseModel):
     goal: str = Field(
@@ -84,8 +84,23 @@ class SubAgentTool(Tool):
         error = None
         terminate_response = 'goal'
 
+        # Route the subagent's approvals through the parent session's
+        # confirmation callback so nested tool calls cannot bypass the
+        # approval flow. The description is prefixed so the user can see
+        # which subagent is asking.
+        parent_callback = invocation.confirmation_callback
+        subagent_callback = None
+        if parent_callback is not None:
+            subagent_name = self.definition.name
+
+            async def subagent_callback(confirmation: ToolConfirmation) -> bool:
+                confirmation.description = (
+                    f"[subagent: {subagent_name}] {confirmation.description}"
+                )
+                return await parent_callback(confirmation)
+
         try:
-            async with Agent(subagent_config) as agent:
+            async with Agent(subagent_config, confirmation_callback=subagent_callback) as agent:
                 timeout = asyncio.get_event_loop().time() + self.definition.timeout_seconds
                 async for event in agent.run(prompt):
                     if asyncio.get_event_loop().time() > timeout:

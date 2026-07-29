@@ -102,6 +102,9 @@ class ToolRegistry:
         invocation = ToolInvocation(
             params=params,
             cwd=cwd,
+            confirmation_callback=(
+                approval_manager.confirmation_callback if approval_manager else None
+            ),
         )
         if approval_manager:
             confirmation = await tool.get_confirmation(invocation)
