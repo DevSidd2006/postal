@@ -30,7 +30,8 @@ Postal, an open-source AI coding agent that runs in your terminal. It connects t
 
 ## Functionality
 
-### Interface | |
+### Interface 
+| | |
 | --- | --- |
 | **Interactive TUI** | Full-screen terminal interface built on Rich, with streaming responses, live tool call output, and token usage tracking. |
 | **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting. |
