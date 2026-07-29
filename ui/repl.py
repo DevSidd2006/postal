@@ -23,6 +23,7 @@ from rich.text import Text
 
 from agent.agent import Agent
 from config.config import Config
+from ui.commands import SlashCommands
 from ui.logo import LOGO_WIDTH, POSTAL_VERSION, logo
 from ui.renderer import APPROVAL_RISK_STYLES, TUI, build_key_bindings, get_console
 from ui.stream import stream_turn
@@ -97,6 +98,7 @@ class Repl:
         self.config = config
         self.console = get_console()
         self.tui = TUI(config, self.console)
+        self.commands = SlashCommands(config, self.console)
         self.session: PromptSession[str] = PromptSession(
             history=FileHistory(str(_history_path())),
             style=PROMPT_STYLE,
@@ -109,7 +111,6 @@ class Repl:
         window.dont_extend_height = to_filter(True)
 
     def _reflow(self, buffer: Buffer) -> None:
-        """Re-wrap the input at word boundaries as it is typed."""
         if self._reflowing:
             return
         width = self.console.width - PROMPT_WIDTH
@@ -190,7 +191,6 @@ class Repl:
         )
 
     def _farewell(self, agent: Agent) -> None:
-        """Leave the session id behind so the session can be picked up later."""
         session = agent.session
 
         line = Text.assemble(("Session ", "muted"), (session.session_id, "subtitle"))
@@ -225,7 +225,6 @@ class Repl:
 
         def on_keys() -> None:
             for key_press in device.read_keys():
-                # A pending confirmation owns the keyboard until it is answered.
                 if self.tui.feed_confirmation_key(key_press):
                     continue
                 if key_press.key == Keys.ControlO:
@@ -272,7 +271,6 @@ class Repl:
         policy = self.config.approval
         badge = f" approval: {policy.label} "
 
-        # ╰─ approval: ask ───────────╯
         trailing = width - 3 - len(badge)
         if trailing < 1:
             return [("class:frame", "╰" + "─" * (width - 2) + "╯")]
@@ -310,6 +308,11 @@ class Repl:
 
                     message = message.strip()
                     if not message:
+                        continue
+
+                    if self.commands.is_command(message):
+                        if not await self.commands.execute(agent, message):
+                            break
                         continue
 
                     self._reset_plan(agent)

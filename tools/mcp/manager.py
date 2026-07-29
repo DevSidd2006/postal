@@ -11,7 +11,11 @@ class MCPManager:
         self.config = config
         self._clients: dict[str, MCPClient] = {}
         self._initialized = False
-    
+
+    @property
+    def clients(self) -> list[MCPClient]:
+        return list(self._clients.values())
+
     async def initialize(self) -> None:
 
         if self._initialized:

@@ -119,6 +119,10 @@ class ContextManager:
     def add_usage(self, usage: TokenUsage):
         self._total_usage += usage
 
+    @property
+    def total_usage(self) -> TokenUsage:
+        return self._total_usage
+
     def needs_compression(self) -> bool:
 
         context_lim = self.config.model.context_window
