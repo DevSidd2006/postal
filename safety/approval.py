@@ -187,4 +187,5 @@ class ApprovalManager:
             result = await self.confirmation_callback(confirmation)
             return result
 
-        return True
+        # No way to ask the user: fail closed instead of silently approving.
+        return False
