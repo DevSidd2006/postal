@@ -99,10 +99,6 @@ visible = true     # stream the thinking into the transcript
 | **Slash commands** | Control the session without leaving it. See [Slash commands](#slash-commands). |
 | **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting. |
 
-<p align="center">
-  <img src="assets/postalother.gif" alt="Postal streaming tool calls and edits in the TUI" width="100%" />
-</p>
-
 ## Technologies
 
 Postal is a terminal application, so "frontend" here means the interface layer you interact with, and "backend" the agent runtime behind it.
