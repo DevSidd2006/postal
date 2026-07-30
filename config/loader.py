@@ -5,6 +5,7 @@ try:
     import tomllib
 except ModuleNotFoundError:
     import tomli as tomllib
+import json
 import logging
 from typing import Any
 
@@ -15,14 +16,18 @@ logger = logging.getLogger(__name__)
 CONFIG_FILE = 'config.toml'
 AGENT_MD_FILE = 'AGENTS.md'
 
+
 def get_config_dir() -> Path:
     return Path(user_config_dir('postal'))
+
 
 def get_data_dir() -> Path:
     return Path(user_config_dir('postal'))
 
+
 def get_system_config_path() -> Path:
     return get_config_dir() / CONFIG_FILE
+
 
 def _parse_toml(path: Path):
     try:
@@ -32,7 +37,57 @@ def _parse_toml(path: Path):
         raise ConfigError(f"Invalid TOML in {path}: {e}", config_file=str(path)) from e
     except (OSError, IOError) as e:
         raise ConfigError(f"Failed to read config file: {path}: {e}", config_file=str(path)) from e
-    
+
+
+def save_model_name(model_name: str, cwd: Path | None = None) -> None:
+    """Persist the interactive model selection in the active config."""
+    path = _get_project_config(cwd or Path.cwd()) if cwd else None
+    path = path or get_system_config_path()
+    try:
+        content = path.read_text(encoding='utf-8') if path.is_file() else ''
+        lines = content.splitlines(keepends=True)
+        model_start = next(
+            (index for index, line in enumerate(lines) if line.strip() == '[model]'),
+            None,
+        )
+
+        if model_start is None:
+            if content and not content.endswith('\n'):
+                content += '\n'
+            content += f'\n[model]\nname = {json.dumps(model_name)}\n'
+        else:
+            model_end = next(
+                (
+                    index
+                    for index in range(model_start + 1, len(lines))
+                    if lines[index].lstrip().startswith('[')
+                ),
+                len(lines),
+            )
+            name_index = next(
+                (
+                    index
+                    for index in range(model_start + 1, model_end)
+                    if lines[index].lstrip().startswith('name')
+                    and '=' in lines[index]
+                ),
+                None,
+            )
+            replacement = f'name = {json.dumps(model_name)}\n'
+            if name_index is None:
+                lines.insert(model_start + 1, replacement)
+            else:
+                lines[name_index] = replacement
+            content = ''.join(lines)
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(path.suffix + '.tmp')
+        temporary.write_text(content, encoding='utf-8')
+        temporary.replace(path)
+    except OSError as e:
+        raise ConfigError(f"Failed to save config file: {path}: {e}", config_file=str(path)) from e
+
+
 def _get_project_config(cwd: Path) -> Path:
 
     current = cwd.resolve()
@@ -42,11 +97,11 @@ def _get_project_config(cwd: Path) -> Path:
         config_file = agent_dir / CONFIG_FILE
         if config_file.is_file():
             return config_file
-    
+
     return None
 
-def _get_agent_md(cwd: Path) -> str | None:
 
+def _get_agent_md(cwd: Path) -> str | None:
     current = cwd.resolve()
 
     search_dirs: list[Path] = []
@@ -73,8 +128,9 @@ def _get_agent_md(cwd: Path) -> str | None:
 
     return "\n\n".join(sections)
 
+
 def _merge_dicts(
-        base: dict[str, Any], 
+        base: dict[str, Any],
         override: dict[str, Any]) -> dict[str, Any]:
     result = base.copy()
     for key, value in override.items():
@@ -82,8 +138,9 @@ def _merge_dicts(
             result[key] = _merge_dicts(result[key], value)
         else:
             result[key] = value
-        
+
     return result
+
 
 def load_config(cwd: Path | None) -> Config:
     cwd = cwd or Path.cwd()
