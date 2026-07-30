@@ -1,14 +1,3 @@
-"""On-disk storage for sessions and their checkpoints.
-
-A session is a directory under the data dir:
-
-    sessions/<session_id>/meta.json          - listing data, cheap to read
-    sessions/<session_id>/checkpoints.jsonl  - one full transcript per line
-
-Keeping the transcripts in a JSONL file means saving a checkpoint is an
-append, and listing sessions never has to read a single transcript.
-"""
-
 from __future__ import annotations
 
 import json
@@ -232,7 +221,7 @@ class SessionStore:
         return sessions[0] if sessions else None
 
     def resolve(self, session_id: str, cwd: Path | str | None = None) -> str | None:
-        """Accept a full id or a prefix. Sessions from `cwd` win, then newest."""
+        """Accept a full id or any unique-enough prefix, newest match wins."""
 
         if not session_id:
             return None
@@ -240,18 +229,13 @@ class SessionStore:
             return session_id
 
         matches = [
-            meta for meta in self.list() if meta.session_id.startswith(session_id)
+            meta.session_id
+            for meta in self.list()
+            if meta.session_id.startswith(session_id)
         ]
         if not matches:
             return None
-
-        if cwd is not None:
-            wanted = str(Path(cwd).resolve())
-            local = [meta for meta in matches if meta.cwd == wanted]
-            if local:
-                return local[0].session_id
-
-        return matches[0].session_id
+        return matches[0]
 
     def save(
         self,
