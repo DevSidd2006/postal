@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -8,10 +9,11 @@ from rich.table import Table
 from rich.text import Text
 
 from agent.agent import Agent
+from agent.store import Checkpoint, SessionMeta
 from client.response import TokenUsage
 from config.config import ApprovalPolicy, Config
-from context.loop_detector import LoopDetector
 from tools.mcp.client import MCPServerStatus
+from ui.renderer import render_transcript
 
 HELP_TEXT = """\
 ## Commands
@@ -27,11 +29,21 @@ HELP_TEXT = """\
 - `/tools` - List available tools
 - `/mcp` - Show MCP server status
 
+## Sessions
+
+- `/sessions [all]` - List saved sessions, newest first
+- `/sessions rm <n|id>` - Delete a saved session
+- `/resume <n|id>` - Load a saved session into this one
+- `/checkpoint [label]` - Save a checkpoint now, with an optional name
+- `/checkpoints` - List checkpoints in this session
+- `/rewind <n|id>` - Roll the conversation back to a checkpoint
+
 ## Tips
 
 - Just type your message to chat with the agent
 - The agent can read, write, and execute code
 - Some operations require approval (can be configured)
+- Sessions are saved after every turn; `postal --resume` picks the last one up
 """
 
 MCP_STATUS_STYLES = {
@@ -53,11 +65,41 @@ def _format_elapsed(start: datetime) -> str:
     return f"{secs}s"
 
 
+def format_ago(moment: datetime) -> str:
+    seconds = int((datetime.now() - moment).total_seconds())
+    if seconds < 60:
+        return "just now"
+    if seconds < 3600:
+        return f"{seconds // 60}m ago"
+    if seconds < 86_400:
+        return f"{seconds // 3600}h ago"
+    return f"{seconds // 86_400}d ago"
+
+
+def pick(items: list, token: str, identity) -> Any | None:
+    """Resolve a `1`-based list position or an id prefix to one item."""
+
+    token = token.strip()
+    if not token:
+        return None
+
+    if token.isdigit():
+        index = int(token) - 1
+        return items[index] if 0 <= index < len(items) else None
+
+    return next((item for item in items if identity(item).startswith(token)), None)
+
+
 class SlashCommands:
 
     def __init__(self, config: Config, console: Console) -> None:
         self.config = config
         self.console = console
+
+        # Whatever the last /sessions and /checkpoints printed, so the numbers
+        # in those listings can be used as arguments.
+        self._listed_sessions: list[SessionMeta] = []
+        self._listed_checkpoints: list[Checkpoint] = []
 
     def is_command(self, message: str) -> bool:
         return message.startswith("/")
@@ -88,6 +130,16 @@ class SlashCommands:
             self._tools(agent)
         elif name == "mcp":
             self._mcp(agent)
+        elif name == "sessions":
+            self._sessions(agent, args)
+        elif name == "resume":
+            self._resume(agent, args)
+        elif name in {"checkpoint", "save"}:
+            self._checkpoint(agent, args)
+        elif name == "checkpoints":
+            self._checkpoints(agent)
+        elif name == "rewind":
+            self._rewind(agent, args)
         else:
             self.console.print(f"[error]Unknown command: /{name}[/error]")
             self.console.print(Text("Type /help to see available commands.", style="muted"))
@@ -99,11 +151,25 @@ class SlashCommands:
 
     def _clear(self, agent: Agent) -> None:
         session = agent.session
-        session.context_manager.clear()
+
+        # The conversation being cleared stays on disk under its own id, so
+        # clearing is recoverable with /resume.
+        if session.turns:
+            session.save_checkpoint()
+
+        saved = session.store.exists(session.session_id)
+        previous = session.short_id
+
+        session.reset()
         session.context_manager.set_latest_usage(TokenUsage())
-        session.loop_detector = LoopDetector()
+        self._listed_checkpoints = []
+
         self.console.clear()
         self.console.print(Text("Conversation history cleared.", style="muted"))
+        if saved:
+            self.console.print(
+                Text(f"The previous conversation is saved as {previous}.", style="muted")
+            )
 
     def _config(self) -> None:
         table = Table.grid(padding=(0, 1))
@@ -250,6 +316,8 @@ class SlashCommands:
         rows = [
             ("Session", session.session_id),
             ("Turns", str(session.turns)),
+            ("Messages", str(session.context_manager.message_count)),
+            ("Checkpoints", str(len(session.checkpoints()))),
             ("Duration", _format_elapsed(session.created_at)),
             ("Prompt tokens", f"{usage.prompt_tokens:,}"),
             ("Completion tokens", f"{usage.completion_tokens:,}"),
@@ -277,6 +345,254 @@ class SlashCommands:
 
         self.console.print(Text(f"Available tools ({len(tools)})", style="highlight"))
         self.console.print(table)
+
+    def _sessions(self, agent: Agent, args: list[str]) -> None:
+        session = agent.session
+
+        if args and args[0].lower() in {"rm", "delete", "remove"}:
+            self._session_delete(agent, args[1:])
+            return
+
+        # Sessions are scoped to the directory they ran in; `all` widens that.
+        every = bool(args) and args[0].lower() == "all"
+        sessions = session.store.list(None if every else self.config.cwd)
+
+        if not sessions:
+            scope = "" if every else " for this directory"
+            self.console.print(Text(f"No saved sessions{scope}.", style="muted"))
+            if not every:
+                self.console.print(
+                    Text("Try /sessions all to look in every directory.", style="muted")
+                )
+            return
+
+        self._listed_sessions = sessions
+
+        table = Table.grid(padding=(0, 2))
+        table.add_column(style="muted", justify="right")
+        table.add_column(style="subtitle")
+        table.add_column(style="muted")
+        table.add_column(style="muted", justify="right")
+        table.add_column()
+
+        for index, meta in enumerate(sessions, start=1):
+            current = meta.session_id == session.session_id
+            table.add_row(
+                str(index),
+                meta.short_id,
+                format_ago(meta.updated_at),
+                f"{meta.turns} turn{'s' if meta.turns != 1 else ''}",
+                Text(
+                    meta.title + (" (current)" if current else ""),
+                    style="highlight" if current else "text",
+                ),
+            )
+
+        header = "Saved sessions" if every else "Saved sessions here"
+        self.console.print(Text(f"{header} ({len(sessions)})", style="highlight"))
+        self.console.print(table)
+        self.console.print(Text("Usage: /resume <number|id>", style="muted"))
+
+    def _session_delete(self, agent: Agent, args: list[str]) -> None:
+        if not args:
+            self.console.print(Text("Usage: /sessions rm <number|id>", style="muted"))
+            return
+
+        session = agent.session
+        candidates = self._listed_sessions or session.store.list(self.config.cwd)
+        target = pick(candidates, args[0], lambda meta: meta.session_id)
+
+        if target is None:
+            self.console.print(f"[error]No such session: {args[0]}[/error]")
+            return
+
+        if target.session_id == session.session_id:
+            self.console.print(
+                "[error]That is the session you are in, it cannot be deleted.[/error]"
+            )
+            return
+
+        if session.store.delete(target.session_id):
+            self._listed_sessions = []
+            self.console.print(
+                f"[success]Deleted session {target.short_id}[/success] - {target.title}"
+            )
+        else:
+            self.console.print(f"[error]Could not delete {target.short_id}[/error]")
+
+    def _resume(self, agent: Agent, args: list[str]) -> None:
+        session = agent.session
+
+        if not args:
+            self._sessions(agent, [])
+            return
+
+        candidates = self._listed_sessions or session.store.list(self.config.cwd)
+        target = pick(candidates, args[0], lambda meta: meta.session_id)
+
+        if target is None:
+            # Not in the listing: it may still be an id from another directory.
+            resolved = session.store.resolve(args[0], self.config.cwd)
+            target = session.store.read_meta(resolved) if resolved else None
+
+        if target is None:
+            self.console.print(f"[error]No such session: {args[0]}[/error]")
+            self.console.print(Text("Type /sessions to see what is saved.", style="muted"))
+            return
+
+        if target.session_id == session.session_id:
+            self.console.print(Text("Already in that session.", style="muted"))
+            return
+
+        # Do not strand the conversation that is being replaced. A session
+        # that never took a turn has nothing worth keeping.
+        if session.turns:
+            session.save_checkpoint()
+
+        record = session.resume(target.session_id)
+        if record is None:
+            self.console.print(f"[error]Could not read session {target.short_id}[/error]")
+            return
+
+        self._listed_checkpoints = []
+        self.announce_resume(agent)
+
+    def announce_resume(self, agent: Agent) -> None:
+        session = agent.session
+        meta = session.resumed_from.meta if session.resumed_from else session.meta()
+
+        line = Text.assemble(
+            ("Resumed ", "success"),
+            (meta.short_id, "subtitle"),
+            (f" - {meta.title}", "muted"),
+        )
+        self.console.print()
+        self.console.print(line)
+        turns = session.turns
+        self.console.print(
+            Text(
+                f"{session.context_manager.message_count} messages · "
+                f"{turns} turn{'s' if turns != 1 else ''} · "
+                f"saved {format_ago(meta.updated_at)}",
+                style="muted",
+            )
+        )
+
+        if meta.model and meta.model != self.config.model_name:
+            self.console.print(
+                Text(
+                    f"Saved with {meta.model}, continuing with {self.config.model_name}.",
+                    style="warning",
+                )
+            )
+
+        render_transcript(self.console, session.context_manager.history)
+
+    def _checkpoint(self, agent: Agent, args: list[str]) -> None:
+        session = agent.session
+
+        if not self.config.session.enabled:
+            self.console.print(
+                "[error]Session saving is disabled in your config.[/error]"
+            )
+            return
+
+        if session.context_manager.message_count == 0:
+            self.console.print(Text("Nothing to save yet.", style="muted"))
+            return
+
+        label = " ".join(args).strip() or None
+        checkpoint = session.save_checkpoint(label=label, auto=False)
+
+        if checkpoint is None:
+            self.console.print("[error]Could not write the checkpoint.[/error]")
+            return
+
+        self._listed_checkpoints = []
+        self.console.print(
+            Text.assemble(
+                ("Saved ", "success"),
+                (checkpoint.label, "subtitle"),
+                (f" · {checkpoint.message_count} messages · session ", "muted"),
+                (session.short_id, "subtitle"),
+            )
+        )
+
+    def _checkpoints(self, agent: Agent) -> None:
+        session = agent.session
+        checkpoints = session.checkpoints()
+
+        if not checkpoints:
+            self.console.print(Text("No checkpoints in this session yet.", style="muted"))
+            self.console.print(Text("Use /checkpoint to save one now.", style="muted"))
+            return
+
+        self._listed_checkpoints = checkpoints
+
+        table = Table.grid(padding=(0, 2))
+        table.add_column(style="muted", justify="right")
+        table.add_column(style="subtitle")
+        table.add_column(style="muted")
+        table.add_column(style="muted", justify="right")
+        table.add_column(style="muted")
+
+        for index, checkpoint in enumerate(checkpoints, start=1):
+            table.add_row(
+                str(index),
+                checkpoint.id,
+                checkpoint.label,
+                f"{checkpoint.message_count} msgs",
+                format_ago(checkpoint.created_at),
+            )
+
+        self.console.print(
+            Text(f"Checkpoints in {session.short_id} ({len(checkpoints)})", style="highlight")
+        )
+        self.console.print(table)
+        self.console.print(Text("Usage: /rewind <number|id>", style="muted"))
+
+    def _rewind(self, agent: Agent, args: list[str]) -> None:
+        session = agent.session
+
+        if not args:
+            self._checkpoints(agent)
+            return
+
+        checkpoints = self._listed_checkpoints or session.checkpoints()
+        target = pick(checkpoints, args[0], lambda checkpoint: checkpoint.id)
+
+        if target is None:
+            self.console.print(f"[error]No such checkpoint: {args[0]}[/error]")
+            self.console.print(Text("Type /checkpoints to see them.", style="muted"))
+            return
+
+        record = session.store.load(session.session_id, target.id)
+        if record is None:
+            self.console.print(f"[error]Could not read checkpoint {target.id}[/error]")
+            return
+
+        session.restore(record)
+
+        # Rewinding moves the session head, otherwise the next resume would
+        # come back to the state we just rolled away from.
+        session.save_checkpoint(label=f"rewound to {target.label}", auto=False)
+
+        self._listed_checkpoints = []
+
+        detail = (
+            f" · {session.context_manager.message_count} messages"
+            f" · turn {session.turns}"
+        )
+
+        self.console.print()
+        self.console.print(
+            Text.assemble(
+                ("Rewound to ", "success"),
+                (target.label, "subtitle"),
+                (detail, "muted"),
+            )
+        )
+        render_transcript(self.console, session.context_manager.history)
 
     def _mcp(self, agent: Agent) -> None:
         clients = agent.session.mcp_manager.clients

@@ -94,8 +94,9 @@ def _history_path() -> Path:
 
 class Repl:
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, resume: str | None = None) -> None:
         self.config = config
+        self.resume = resume
         self.console = get_console()
         self.tui = TUI(config, self.console)
         self.commands = SlashCommands(config, self.console)
@@ -193,11 +194,21 @@ class Repl:
     def _farewell(self, agent: Agent) -> None:
         session = agent.session
 
+        # A turn cut short by ctrl+c never reached its autosave.
+        if session.turns:
+            session.save_checkpoint()
+
         line = Text.assemble(("Session ", "muted"), (session.session_id, "subtitle"))
 
         self.console.print()
         self.console.print(line)
-        self.console.print(Text("Keep this id to resume the session.", style="border"))
+
+        if self.config.session.enabled and session.store.exists(session.session_id):
+            self.console.print(
+                Text(f"Resume it with postal --resume {session.short_id}", style="border")
+            )
+        else:
+            self.console.print(Text("Keep this id to resume the session.", style="border"))
 
     def _reset_plan(self, agent: Agent) -> None:
         tool = agent.session.tool_registry.get("plan")
@@ -294,9 +305,25 @@ class Repl:
             self.tui.expanded = False
             self._box_bottom()
 
+    def _resume_notice(self, agent: Agent) -> None:
+        if agent.resumed is not None:
+            self.commands.announce_resume(agent)
+            return
+
+        self.console.print()
+        self.console.print(
+            Text(f"No saved session matched '{self.resume}', starting a new one.", style="warning")
+        )
+
     async def run(self) -> None:
-        async with Agent(self.config, confirmation_callback=self.tui.confirm_tool) as agent:
+        async with Agent(
+            self.config,
+            confirmation_callback=self.tui.confirm_tool,
+            resume=self.resume,
+        ) as agent:
             self._banner(agent)
+            if self.resume:
+                self._resume_notice(agent)
             try:
                 while True:
                     try:

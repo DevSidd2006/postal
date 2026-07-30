@@ -1,6 +1,14 @@
 import json
 import uuid
 
+from agent.store import (
+    Checkpoint,
+    SessionMeta,
+    SessionRecord,
+    SessionStore,
+    UNTITLED,
+    make_title,
+)
 from client.llm_client import LLMClient
 from client.response import TokenUsage
 from config.config import Config
@@ -41,12 +49,19 @@ class Session:
         self.created_at = datetime.now()
         self.updated_at = datetime.now()
 
+        self.store = SessionStore()
+        self.title = UNTITLED
+        self.resumed_from: SessionRecord | None = None
+
         self.last_usage: TokenUsage | None = None
 
         self.turn_usage = TokenUsage()
 
         self._turn_count = 0
-    
+
+        # What the last checkpoint held, so exiting does not write a duplicate.
+        self._saved_signature: tuple[int, int] | None = None
+
     async def initalize(self) -> None:
 
         await self.mcp_manager.initialize()
@@ -88,6 +103,157 @@ class Session:
             return "\n".join(lines)
         except Exception:
             return None
+
+    @property
+    def short_id(self) -> str:
+        return self.session_id[:8]
+
+    def note_prompt(self, message: str) -> None:
+        """The first prompt of a session becomes its title in the session list."""
+
+        if self.title == UNTITLED and message.strip():
+            self.title = make_title(message)
+
+    def meta(self) -> SessionMeta:
+        usage = (
+            self.context_manager.total_usage
+            if self.context_manager
+            else TokenUsage()
+        )
+        return SessionMeta(
+            session_id=self.session_id,
+            cwd=str(self.config.cwd.resolve()),
+            model=self.config.model_name,
+            title=self.title,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+            turns=self._turn_count,
+            usage={
+                "prompt_tokens": usage.prompt_tokens,
+                "completion_tokens": usage.completion_tokens,
+                "total_tokens": usage.total_tokens,
+                "cached_tokens": usage.cached_tokens,
+                "reasoning_tokens": usage.reasoning_tokens,
+            },
+        )
+
+    def save_checkpoint(
+        self,
+        label: str | None = None,
+        auto: bool = True,
+    ) -> Checkpoint | None:
+        """Write the conversation to disk. Never raises: losing a checkpoint
+        should not take the turn down with it."""
+
+        if not self.config.session.enabled or self.context_manager is None:
+            return None
+
+        messages = self.context_manager.export_messages()
+        if not messages:
+            return None
+
+        signature = (len(messages), hash(messages[-1].get("content") or ""))
+        if auto and signature == self._saved_signature:
+            return None
+
+        self.updated_at = datetime.now()
+
+        try:
+            new_session = not self.store.exists(self.session_id)
+            checkpoint = self.store.save(
+                self.meta(),
+                messages,
+                label=label,
+                auto=auto,
+                max_checkpoints=self.config.session.max_checkpoints,
+            )
+            if new_session:
+                self.store.prune(self.config.session.max_sessions)
+        except (OSError, TypeError, ValueError):
+            return None
+
+        self._saved_signature = signature
+        return checkpoint
+
+    def checkpoints(self) -> list[Checkpoint]:
+        meta = self.store.read_meta(self.session_id)
+        return meta.checkpoints if meta else []
+
+    def restore(self, record: SessionRecord) -> int:
+        """Adopt a saved transcript, identity and all."""
+
+        if self.context_manager is None:
+            raise RuntimeError("Session must be initialised before restoring.")
+
+        self.session_id = record.meta.session_id
+        self.title = record.meta.title
+        self.created_at = record.meta.created_at
+        self.updated_at = record.meta.updated_at
+        self._turn_count = record.checkpoint.turn
+
+        restored = self.context_manager.restore_messages(record.messages)
+        self.context_manager.set_total_usage(
+            TokenUsage(
+                prompt_tokens=record.meta.usage.get("prompt_tokens", 0),
+                completion_tokens=record.meta.usage.get("completion_tokens", 0),
+                total_tokens=record.meta.usage.get("total_tokens", 0),
+                cached_tokens=record.meta.usage.get("cached_tokens", 0),
+                reasoning_tokens=record.meta.usage.get("reasoning_tokens", 0),
+            )
+        )
+
+        # A restored transcript is by definition already on disk.
+        messages = self.context_manager.export_messages()
+        self._saved_signature = (
+            (len(messages), hash(messages[-1].get("content") or ""))
+            if messages
+            else None
+        )
+
+        self.loop_detector = LoopDetector()
+        self.last_usage = None
+        self.turn_usage = TokenUsage()
+        self.resumed_from = record
+
+        return restored
+
+    def reset(self) -> str:
+        """Start over under a new id, leaving whatever was saved on disk."""
+
+        self.session_id = str(uuid.uuid4())
+        self.created_at = datetime.now()
+        self.updated_at = self.created_at
+        self.title = UNTITLED
+        self.resumed_from = None
+        self._turn_count = 0
+        self._saved_signature = None
+        self.last_usage = None
+        self.turn_usage = TokenUsage()
+        self.loop_detector = LoopDetector()
+
+        if self.context_manager is not None:
+            self.context_manager.clear()
+            self.context_manager.set_total_usage(TokenUsage())
+
+        return self.session_id
+
+    def resume(
+        self,
+        session_id: str,
+        checkpoint_id: str | None = None,
+    ) -> SessionRecord | None:
+        """Load a session by id or prefix and continue it. None if unknown."""
+
+        resolved = self.store.resolve(session_id, self.config.cwd)
+        if resolved is None:
+            return None
+
+        record = self.store.load(resolved, checkpoint_id)
+        if record is None:
+            return None
+
+        self.restore(record)
+        return record
 
     def reset_turn_usage(self) -> None:
         self.turn_usage = TokenUsage()

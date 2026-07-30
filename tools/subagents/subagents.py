@@ -42,7 +42,21 @@ class SubAgentTool(Tool):
 
     def is_mutating(self, params: dict[str, Any]) -> bool:
         return True
-    
+
+    def subagent_config(self) -> Config:
+        """The parent config, narrowed to what this sub-agent may do."""
+
+        config_dict = self.config.to_dict()
+        config_dict['max_turns'] = self.definition.max_turns
+        if self.definition.allowed_tools:
+            config_dict['allowed_tools'] = self.definition.allowed_tools
+
+        # A sub-agent run belongs to the turn that spawned it, not in the
+        # user's session list, so it is never checkpointed.
+        config_dict['session'] = {'enabled': False}
+
+        return Config(**config_dict)
+
     async def execute(self, invocation: ToolInvocation) -> ToolResult:
 
         from agent.agent import Agent
@@ -55,12 +69,7 @@ class SubAgentTool(Tool):
                 'No goal or task was specified for a subagent'
             )
         
-        config_dict = self.config.to_dict()
-        config_dict['max_turns'] = self.definition.max_turns
-        if self.definition.allowed_tools:
-            config_dict['allowed_tools'] = self.definition.allowed_tools
-        
-        subagent_config = Config(**config_dict)
+        subagent_config = self.subagent_config()
 
         prompt = f"""
 

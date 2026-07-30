@@ -889,3 +889,57 @@ class TUI:
 
         self.console.print()
         self.console.print(line)
+
+TRANSCRIPT_MESSAGES = 12
+TRANSCRIPT_LINES = 6
+
+
+def _transcript_body(content: str, max_lines: int = TRANSCRIPT_LINES) -> str:
+    lines = [line for line in content.strip().splitlines() if line.strip()]
+    if len(lines) <= max_lines:
+        return "\n".join(lines)
+    hidden = len(lines) - max_lines
+    return "\n".join(lines[:max_lines] + [f"… {hidden} more line{'s' if hidden > 1 else ''}"])
+
+
+def render_transcript(
+    console: Console,
+    messages: list[Any],
+    limit: int = TRANSCRIPT_MESSAGES,
+) -> None:
+    """Replay a restored conversation, compactly.
+
+    Tool results are left out: the model still has them, but they are the
+    bulkiest and least useful part to read back.
+    """
+
+    shown = [message for message in messages if message.role in {"user", "assistant"}]
+    if not shown:
+        return
+
+    omitted = max(0, len(shown) - limit)
+    shown = shown[len(shown) - limit:] if omitted else shown
+
+    console.print()
+    if omitted:
+        console.print(
+            Text(f"… {omitted} earlier message{'s' if omitted > 1 else ''} not shown", style="dim")
+        )
+
+    for message in shown:
+        content = (message.content or "").strip()
+
+        if message.role == "user":
+            if content:
+                console.print()
+                console.print(
+                    Text.assemble(("❯ ", "border"), (_transcript_body(content), "user"))
+                )
+            continue
+
+        if content:
+            console.print(Gutter(Text(_transcript_body(content), style="assistant")))
+
+        for tool_call in message.tool_calls or []:
+            name = tool_call.get("function", {}).get("name", "tool")
+            console.print(Text(f"  {TOOL_ICON} {name}", style="dim"))

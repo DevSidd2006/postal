@@ -9,6 +9,8 @@ from datetime import datetime
 
 EMPTY_TOOL_OUTPUT = "(no output)"
 
+INTERRUPTED_TOOL_OUTPUT = "[interrupted before this tool ran]"
+
 @dataclass
 class MessageItem:
     role: str
@@ -18,9 +20,40 @@ class MessageItem:
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     pruned_at: datetime | None = None
 
+    def to_storage(self) -> dict[str, Any]:
+        """The full item, including bookkeeping the model never sees."""
+        return {
+            "role": self.role,
+            "content": self.content,
+            "token_count": self.token_count,
+            "tool_call_id": self.tool_call_id,
+            "tool_calls": self.tool_calls,
+            "pruned_at": self.pruned_at.isoformat() if self.pruned_at else None,
+        }
+
+    @classmethod
+    def from_storage(cls, data: dict[str, Any]) -> "MessageItem":
+        pruned_at = data.get("pruned_at")
+        if isinstance(pruned_at, str):
+            try:
+                pruned_at = datetime.fromisoformat(pruned_at)
+            except ValueError:
+                pruned_at = None
+        else:
+            pruned_at = None
+
+        return cls(
+            role=str(data.get("role", "user")),
+            content=str(data.get("content") or ""),
+            token_count=data.get("token_count"),
+            tool_call_id=data.get("tool_call_id"),
+            tool_calls=list(data.get("tool_calls") or []),
+            pruned_at=pruned_at,
+        )
+
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {
-           "role": self.role 
+           "role": self.role
         }
 
         if self.tool_call_id:
@@ -82,6 +115,98 @@ class ContextManager:
     
     def clear(self) -> None:
         self._messages.clear()
+        self._latest_usage = TokenUsage()
+
+    @property
+    def history(self) -> list[MessageItem]:
+        """The conversation, system prompt excluded."""
+        return list(self._messages)
+
+    @property
+    def message_count(self) -> int:
+        return len(self._messages)
+
+    def export_messages(self) -> list[dict[str, Any]]:
+        return [item.to_storage() for item in self._messages]
+
+    def restore_messages(self, messages: list[dict[str, Any]]) -> int:
+        """Replace the conversation with a saved one.
+
+        The system prompt is deliberately not restored: it is rebuilt from the
+        current config and tool set, so a resumed session picks up whatever has
+        changed since it was saved.
+        """
+
+        self._messages = [MessageItem.from_storage(item) for item in messages]
+        self.answer_dangling_tool_calls()
+
+        # There is no provider usage report for a restored transcript, so the
+        # stored token counts stand in. Pruning and compaction both read this.
+        restored = sum(
+            item.token_count if item.token_count is not None
+            else count_tokens(item.content, self._model_name)
+            for item in self._messages
+        )
+        self._latest_usage = TokenUsage(
+            prompt_tokens=restored,
+            total_tokens=restored,
+        )
+
+        return len(self._messages)
+
+    def set_total_usage(self, usage: TokenUsage) -> None:
+        self._total_usage = usage
+
+    def answer_dangling_tool_calls(self) -> int:
+        """Give every tool call a result, inventing one where it is missing.
+
+        A turn cut short between the model asking for a tool and the tool
+        answering leaves a call with no result, which providers reject on the
+        next request. Filling the gap keeps an interrupted turn resumable.
+        """
+
+        answered = {
+            item.tool_call_id
+            for item in self._messages
+            if item.role == 'tool' and item.tool_call_id
+        }
+
+        repaired: list[MessageItem] = []
+        added = 0
+        index = 0
+
+        while index < len(self._messages):
+            item = self._messages[index]
+            repaired.append(item)
+            index += 1
+
+            if item.role != 'assistant' or not item.tool_calls:
+                continue
+
+            # Keep the results that did arrive where they are, and fill the
+            # gaps in after them so the order still matches the call order.
+            while index < len(self._messages) and self._messages[index].role == 'tool':
+                repaired.append(self._messages[index])
+                index += 1
+
+            for tool_call in item.tool_calls:
+                call_id = tool_call.get('id')
+                if not call_id or call_id in answered:
+                    continue
+
+                repaired.append(
+                    MessageItem(
+                        role='tool',
+                        content=INTERRUPTED_TOOL_OUTPUT,
+                        tool_call_id=call_id,
+                        token_count=count_tokens(INTERRUPTED_TOOL_OUTPUT, self._model_name),
+                    )
+                )
+                answered.add(call_id)
+                added += 1
+
+        self._messages = repaired
+        return added
 
     def get_messages(self) -> list[dict[str, Any]]:
         messages = []

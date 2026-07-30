@@ -1,5 +1,6 @@
 from pathlib import Path
 from agent.agent import Agent
+from agent.store import SessionStore
 from config.config import Config
 from config.loader import load_config
 from config.credentials import (
@@ -20,11 +21,36 @@ DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 
 console = get_console()
 
-async def run_once(config: Config, message: str) -> str | None:
+async def run_once(config: Config, message: str, resume: str | None = None) -> str | None:
     tui = TUI(config)
-    async with Agent(config, confirmation_callback=tui.confirm_tool) as agent:
+    async with Agent(
+        config, confirmation_callback=tui.confirm_tool, resume=resume
+    ) as agent:
         tui.render_approval_mode()
+        if resume and agent.resumed is None:
+            console.print(f"[warning]No saved session matched '{resume}'.[/warning]")
         return await stream_turn(tui, agent, message)
+
+
+def _resolve_resume(
+    config: Config,
+    resume: str | None,
+    continue_last: bool,
+) -> str | None:
+    """Turn --resume / --continue into a session id, or None to start fresh."""
+
+    if resume:
+        return resume
+
+    if not continue_last:
+        return None
+
+    latest = SessionStore().latest(config.cwd)
+    if latest is None:
+        console.print("[warning]No saved session for this directory, starting a new one.[/warning]")
+        return None
+
+    return latest.session_id
 
 
 class DefaultGroup(click.Group):
@@ -48,9 +74,24 @@ class DefaultGroup(click.Group):
     ),
     help='Current Working Directory'
 )
+@click.option(
+    "--resume",
+    "-r",
+    "resume",
+    default=None,
+    metavar="SESSION",
+    help="Resume a saved session by id (a prefix is enough).",
+)
+@click.option(
+    "--continue",
+    "-C",
+    "continue_last",
+    is_flag=True,
+    help="Resume the most recent session for this directory.",
+)
 @click.pass_context
-def main(ctx: click.Context, cwd: Path | None):
-    ctx.obj = {"cwd": cwd}
+def main(ctx: click.Context, cwd: Path | None, resume: str | None, continue_last: bool):
+    ctx.obj = {"cwd": cwd, "resume": resume, "continue": continue_last}
     # Bare `postal` with no subcommand launches the interactive TUI.
     if ctx.invoked_subcommand is None:
         ctx.invoke(run, prompt=None)
@@ -77,12 +118,18 @@ def run(ctx: click.Context, prompt: str | None):
 
         sys.exit(1)
 
+    resume = _resolve_resume(
+        config,
+        ctx.obj.get("resume") if ctx.obj else None,
+        bool(ctx.obj.get("continue")) if ctx.obj else False,
+    )
+
     if prompt:
-        result = asyncio.run(run_once(config, prompt))
+        result = asyncio.run(run_once(config, prompt, resume=resume))
         if result is None:
             sys.exit(1)
     else:
-        asyncio.run(Repl(config).run())
+        asyncio.run(Repl(config, resume=resume).run())
 
 
 @main.command()
@@ -122,6 +169,63 @@ def login(base_url: str | None, paste: bool):
     path = save_credentials(api_key, resolved_base_url)
     console.print(f"[success]Logged in.[/success] Key saved to {path}")
     console.print("[warning]The API_KEY environment variable, if set, still takes precedence.[/warning]")
+
+
+@main.group(invoke_without_command=True)
+@click.option(
+    "--all",
+    "all_projects",
+    is_flag=True,
+    help="List sessions from every directory, not just this one.",
+)
+@click.pass_context
+def sessions(ctx: click.Context, all_projects: bool):
+    """List saved sessions."""
+
+    if ctx.invoked_subcommand is not None:
+        return
+
+    cwd = (ctx.obj.get("cwd") if ctx.obj else None) or Path.cwd()
+    saved = SessionStore().list(None if all_projects else cwd)
+
+    if not saved:
+        scope = "" if all_projects else f" for {cwd}"
+        console.print(f"[warning]No saved sessions{scope}.[/warning]")
+        return
+
+    for meta in saved:
+        turns = f"{meta.turns} turn{'s' if meta.turns != 1 else ''}"
+        console.print(
+            f"[info]{meta.short_id}[/info]  "
+            f"{meta.updated_at:%Y-%m-%d %H:%M}  "
+            f"{turns:>9}  {meta.title}"
+        )
+        if all_projects:
+            console.print(f"[muted]{' ' * 10}{meta.cwd}[/muted]")
+
+    console.print()
+    console.print("[muted]Resume one with postal --resume <id>[/muted]")
+
+
+@sessions.command("rm")
+@click.argument("session_id")
+def sessions_rm(session_id: str):
+    """Delete a saved session."""
+
+    store = SessionStore()
+    resolved = store.resolve(session_id)
+
+    if resolved is None:
+        console.print(f"[error]No saved session matching '{session_id}'.[/error]")
+        sys.exit(1)
+
+    meta = store.read_meta(resolved)
+    if store.delete(resolved):
+        title = f" - {meta.title}" if meta else ""
+        console.print(f"[success]Deleted session {resolved[:8]}[/success]{title}")
+    else:
+        console.print(f"[error]Could not delete {resolved[:8]}.[/error]")
+        sys.exit(1)
 
 
 @main.command()

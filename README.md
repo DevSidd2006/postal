@@ -44,10 +44,13 @@ postal          # start the interactive TUI
 More ways to run it:
 
 ```bash
-postal "your prompt"    # single-shot mode, great for scripting
-postal --cwd /path      # run against a different working directory
-postal login --paste    # paste an API key instead of browser OAuth
-postal logout           # remove the saved API key
+postal "your prompt"     # single-shot mode, great for scripting
+postal --cwd /path       # run against a different working directory
+postal --continue        # pick up the last session in this directory
+postal --resume 3f2a1c   # resume a specific session by id
+postal sessions          # list saved sessions
+postal login --paste     # paste an API key instead of browser OAuth
+postal logout            # remove the saved API key
 ```
 
 Model, temperature, and context window live in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`:
@@ -61,6 +64,11 @@ enabled = true     # ask the model to think (ignored by models that cannot)
 effort = "medium"  # "minimal", "low", "medium", "high", or omit for the provider default
 # max_tokens = 4000  # a thinking budget instead of an effort level
 visible = true     # stream the thinking into the transcript
+
+[session]
+enabled = true       # save the conversation so it can be resumed
+max_checkpoints = 20 # snapshots kept per session
+max_sessions = 50    # sessions kept before the oldest are dropped
 ```
 
 ## Why Postal?
@@ -68,6 +76,7 @@ visible = true     # stream the thinking into the transcript
 - **Bring any model.** OpenRouter as the backend means one login gives you Claude, GPT, Gemini, DeepSeek, open-weight models, and whatever ships next. No vendor lock-in.
 - **Safety is a first-class feature.** Six approval policies, dangerous-command rejection, and confirmation for anything outside the working directory. You choose the risk level, not the agent.
 - **It survives long sessions.** Context pruning reclaims tokens from stale tool output, and when the window fills up, Postal compacts history into a continuation brief and keeps going instead of erroring out.
+- **Nothing is lost when you close the terminal.** Sessions are checkpointed after every turn, so `postal --continue` puts you back exactly where you were, and `/rewind` walks the conversation back to any earlier checkpoint.
 - **Hackable by design.** A readable Python codebase built on Rich, Click, and Pydantic. Adding a tool or a sub-agent is a small, well-marked change.
 
 ## What it can do
@@ -90,6 +99,7 @@ visible = true     # stream the thinking into the transcript
 | **`AGENTS.md`** | Project instructions are picked up automatically and followed while working. |
 | **Context pruning** | Old tool outputs are cleared once they pile up past the recent working set, reclaiming tokens without touching the conversation itself. |
 | **Compaction** | When the context window fills up, history is summarized into a continuation brief and the session resumes from it instead of erroring out. |
+| **Sessions** | Every turn is checkpointed to disk, so a conversation can be resumed, listed, or rewound to an earlier point. See [Sessions](#sessions). |
 
 ### Interface
 | | |
@@ -98,6 +108,7 @@ visible = true     # stream the thinking into the transcript
 | **Visible thinking** | Reasoning models stream their thinking into the transcript before the answer, dimmed under a gutter. Tune or hide it with `/thinking`. |
 | **Slash commands** | Control the session without leaving it. See [Slash commands](#slash-commands). |
 | **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting. |
+| **Session management** | Save, list, resume, and rewind conversations from inside the TUI or from the command line. |
 
 ## Technologies
 
@@ -138,12 +149,53 @@ Type `/` in the TUI to drive the session directly:
 | `/model <name>` | Switch models mid-session |
 | `/approval <mode>` | Switch the approval policy mid-session |
 | `/thinking [on\|off\|low\|medium\|high]` | Show, hide, or retune the model's reasoning |
-| `/clear` | Clear conversation history |
+| `/clear` | Start a fresh conversation (the old one stays saved) |
 | `/config` | Show the active configuration |
 | `/stats` | Session statistics: tokens, elapsed time, tool calls |
 | `/tools` | List available tools |
 | `/mcp` | Show MCP server status |
+| `/sessions [all]` | List saved sessions, newest first |
+| `/sessions rm <n\|id>` | Delete a saved session |
+| `/resume <n\|id>` | Load a saved session into the current one |
+| `/checkpoint [label]` | Save a checkpoint now, with an optional name |
+| `/checkpoints` | List the checkpoints in this session |
+| `/rewind <n\|id>` | Roll the conversation back to a checkpoint |
 | `/exit`, `/quit` | Leave the agent |
+
+## Sessions
+
+Postal writes the conversation to disk after every turn, so closing the terminal is not the end of it. Nothing has to be enabled: the session id is printed at startup and again on the way out, along with the command that brings it back.
+
+```bash
+postal --continue        # resume the most recent session in this directory
+postal --resume 3f2a1c   # resume a specific session (a prefix of the id is enough)
+postal sessions          # what is saved for this directory
+postal sessions --all    # every directory
+postal sessions rm 3f2a1c
+```
+
+Inside the TUI, `/sessions` lists what is saved and `/resume` loads one into the running agent, transcript and token totals included. The system prompt is not restored: it is rebuilt from the current config and tool set, so a resumed session picks up any model, approval, or `AGENTS.md` changes you have made since.
+
+### Checkpoints
+
+Each save is a checkpoint, a full snapshot of the conversation at that point. Turns are checkpointed automatically, and `/checkpoint <label>` marks one by hand before you try something risky:
+
+```text
+❯ /checkpoint before the refactor
+Saved before the refactor · 24 messages · session 3f2a1c8b
+
+❯ /checkpoints
+1  a41f9c02  turn 3                 18 msgs  22m ago
+2  7d2b1e55  turn 4                 24 msgs  4m ago
+3  e0c34a91  before the refactor    24 msgs  just now
+
+❯ /rewind 1
+Rewound to turn 3 · 18 messages · turn 3
+```
+
+Rewinding replaces the conversation the model sees, which makes it the way out of a turn that went sideways: roll back to before the detour and take another run at it. **It only rewinds the conversation, not your files** — anything already written to disk stays written.
+
+Sessions live in `~/.config/postal/sessions/<id>/`, one directory per session, with the transcripts in a JSONL file next to a small `meta.json`. Old checkpoints are trimmed once a session passes `max_checkpoints` (autosaves go first, named ones are kept), and the oldest sessions are dropped past `max_sessions`. Set `enabled = false` under `[session]` to keep conversations off disk entirely.
 
 ## Approvals
 

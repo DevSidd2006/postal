@@ -43,6 +43,19 @@ class ReasoningConfig(BaseModel):
         return {"enabled": True}
 
 
+class SessionConfig(BaseModel):
+    """Saving the conversation to disk so it can be resumed later."""
+
+    enabled: bool = True
+
+    # Checkpoints are full transcripts, so the cap is what keeps a long
+    # session from growing without bound on disk.
+    max_checkpoints: int = Field(default=20, ge=1)
+
+    # Oldest sessions are dropped once there are more than this many.
+    max_sessions: int = Field(default=50, ge=1)
+
+
 class ShellEnvironmentConfig(BaseModel):
     ignore_default_excludes: bool = False # for filtering keys, secrets
     exclude_patterns: list[str] = Field(
@@ -159,6 +172,8 @@ class Config(BaseModel):
     )
 
     reasoning: ReasoningConfig = Field(default_factory=ReasoningConfig)
+
+    session: SessionConfig = Field(default_factory=SessionConfig)
 
     approval: ApprovalPolicy = ApprovalPolicy.ON_REQUEST
 

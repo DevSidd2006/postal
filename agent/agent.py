@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 from typing import AsyncGenerator, Awaitable, Callable
 from agent.session import Session
+from agent.store import SessionRecord
 from config.config import Config
 from agent.events import AgentEvent, AgentEventType
 from client.response import StreamEventType, TokenUsage, ToolCall, ToolResultMessage
@@ -13,16 +14,22 @@ class Agent:
     def __init__(
         self,
         config: Config,
-        confirmation_callback: Callable[[ToolConfirmation], Awaitable[bool]] | None = None
+        confirmation_callback: Callable[[ToolConfirmation], Awaitable[bool]] | None = None,
+        resume: str | None = None,
     ):
         self.config = config
         self.session: Session | None = Session(self.config)
         self.session.approval_manager.confirmation_callback = confirmation_callback
 
+        # Resolved on entry, once the session has a context manager to fill.
+        self._resume = resume
+        self.resumed: SessionRecord | None = None
+
     async def run(self, message: str):
         await self.session.hook_system.trigger_before_agent(message)
         yield AgentEvent.agent_start(message)
         self.session.inc_turn()
+        self.session.note_prompt(message)
         self.session.reset_turn_usage()
         self.session.context_manager.add_user_message(message)
 
@@ -35,6 +42,7 @@ class Agent:
                 final_response = event.data.get("content")
 
         await self.session.hook_system.trigger_after_agent(message, final_response)
+        self.session.save_checkpoint()
         yield AgentEvent.agent_end(final_response, self.session.last_usage)
     
     async def _agentic_loop(self) -> AsyncGenerator[AgentEvent, None]:
@@ -204,6 +212,8 @@ class Agent:
     
     async def __aenter__(self) -> Agent:
         await self.session.initalize()
+        if self._resume:
+            self.resumed = self.session.resume(self._resume)
         return self
     
     async def __aexit__(
