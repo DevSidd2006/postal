@@ -207,8 +207,8 @@ The scope of an `AGENTS.md` file is the directory tree it sits in, and the more 
 
 Currently being worked on:
 
-- **Session management**: saving, resuming, and switching between sessions.
-- **Approval flow**: extending confirmations to sub-agent tool calls, and implementing the `on_fail` policy.
+- **Skill Integration** - allows users to import skills and use with their favorite model.
+- **Git Integration** - allows users to use git commands with postal.
 
 Have an idea? [Open an issue](https://github.com/andrefetch/postal/issues), feature discussions are very welcome.
 
