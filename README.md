@@ -103,6 +103,35 @@ visible = true     # stream the thinking into the transcript
   <img src="assets/postalother.gif" alt="Postal streaming tool calls and edits in the TUI" width="100%" />
 </p>
 
+## Technologies
+
+Postal is a terminal application, so "frontend" here means the interface layer you interact with, and "backend" the agent runtime behind it.
+
+### Frontend
+
+| | |
+| --- | --- |
+| **[Rich](https://github.com/Textualize/rich)** | The whole TUI: full-screen live rendering, streaming responses, tool call panels, diffs, markdown, and the colour theme. |
+| **[prompt-toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit)** | The input line: key bindings, multiline editing, history, and slash command completion. |
+| **[Pygments](https://pygments.org/)** | Syntax highlighting for code blocks and file previews rendered through Rich. |
+
+### Backend
+
+| | |
+| --- | --- |
+| **[Python 3.11+](https://www.python.org/)** | The agent loop is `asyncio`-based, so streaming, tool calls, and MCP connections run concurrently. |
+| **[OpenAI SDK](https://github.com/openai/openai-python)** | The API client, pointed at OpenRouter's OpenAI-compatible endpoint for streaming and tool calling. |
+| **[OpenRouter](https://openrouter.ai/)** | The model gateway. One login, any model, no per-vendor SDKs. |
+| **[Pydantic](https://docs.pydantic.dev/)** | Config schemas, tool argument validation, and the JSON Schema sent to the model for each tool definition. |
+| **[FastMCP](https://github.com/jlowin/fastmcp) / [MCP](https://modelcontextprotocol.io/)** | Connecting to external MCP servers and exposing their tools to the agent. |
+| **[tiktoken](https://github.com/openai/tiktoken)** | Token counting that drives context pruning and compaction. |
+| **[httpx](https://www.python-httpx.org/)** | Async HTTP for URL fetching and the OAuth token exchange. |
+| **[ddgs](https://github.com/deedy5/ddgs)** | DuckDuckGo-backed web search. |
+| **[Click](https://click.palletsprojects.com/)** | The `postal` CLI: flags, single-shot mode, and the `login` / `logout` subcommands. |
+| **OAuth 2.0 + PKCE** | Browser login runs on a stdlib `http.server` loopback redirect, with the key stored locally. |
+| **[platformdirs](https://github.com/tox-dev/platformdirs) + TOML** | Cross-platform config and credential paths, read with `tomllib`. |
+| **[Docker](https://www.docker.com/)** | A `Dockerfile` and Compose file in [`docker/`](docker/) for running the agent sandboxed. |
+
 ## Slash commands
 
 Type `/` in the TUI to drive the session directly:
@@ -159,7 +188,6 @@ y accept  ·   n reject  ·   esc reject   approval: ask - confirm every mutatin
 > [!NOTE]
 > One gap to be aware of: sub-agents run with their own auto-approving manager, so tool calls they make are not routed to you. Extending confirmations to sub-agents is on the [roadmap](#roadmap).
 
->>>>>>> Stashed changes
 ## Project instructions (`AGENTS.md`)
 
 Drop an `AGENTS.md` at the root of your repo and Postal loads it as developer instructions at startup. Use it for build and test commands, code style, or anything else the agent should know before touching your code.
