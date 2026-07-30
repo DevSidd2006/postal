@@ -12,6 +12,7 @@ from agent.agent import Agent
 from agent.store import Checkpoint, SessionMeta
 from client.response import TokenUsage
 from config.config import ApprovalPolicy, Config
+from config.loader import save_model_name
 from tools.mcp.client import MCPServerStatus
 from ui.renderer import render_transcript
 
@@ -205,6 +206,11 @@ class SlashCommands:
             return
 
         self.config.model_name = args[0]
+        try:
+            save_model_name(args[0], cwd=self.config.cwd)
+        except Exception as exc:
+            self.console.print(f"[warning]Model changed for this session, but could not be saved: {exc}[/warning]")
+            return
         self.console.print(f"[success]Model set to {args[0]}[/success]")
 
     def _approval(self, agent: Agent, args: list[str]) -> None:
