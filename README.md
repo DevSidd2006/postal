@@ -266,7 +266,7 @@ Have an idea? [Open an issue](https://github.com/andrefetch/postal/issues), feat
 
 ## Contributing
 
-Contributions of every size are appreciated, from typo fixes to new tools and sub-agents. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started, and check the [open issues](https://github.com/andrefetch/postal/issues) for something to pick up.
+Contributions of every size are appreciated, from typo fixes to new tools and sub-agents. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started, and check the [open issues](https://github.com/andrefetch/postal/issues) for something to pick up!
 
 If Postal is useful to you, **a star on the repo genuinely helps** the project reach more developers. ⭐
 
