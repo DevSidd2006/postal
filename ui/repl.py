@@ -36,6 +36,7 @@ PROMPT_MARK = "❯"
 PROMPT_WIDTH = len("│ ") + len(PROMPT_MARK) + len(" ")
 
 WELCOME_TITLE = "Welcome to postal!"
+HELP_TITLE = 'Use /help for commands'
 
 BANNER_MIN_WIDTH = 2 + 2 + LOGO_WIDTH + 2 + len(WELCOME_TITLE)
 
@@ -148,9 +149,8 @@ class Repl:
         policy = self.config.approval
         rows = [
             ("Directory", _tilde(str(self.config.cwd))),
-            ("Session", agent.session.session_id if agent else ""),
             ("Model", self.config.model_name),
-            ("Approval", f"{policy.label} - {policy.summary}"),
+            ("Approval", f"{policy.label}"),
             ("Version", POSTAL_VERSION),
         ]
         return [(label, value) for label, value in rows if value]
@@ -158,6 +158,7 @@ class Repl:
     def _banner(self, agent: Agent | None = None) -> None:
         welcome = Table.grid(padding=(0, 0))
         welcome.add_row(Text(WELCOME_TITLE, style="highlight"))
+        welcome.add_row(Text(HELP_TITLE, style="muted"))
 
         head = Table.grid(padding=(0, 2))
         head.add_column(vertical="middle")
@@ -185,7 +186,7 @@ class Repl:
         self.console.print()
         self.console.print(
             Text(
-                "ctrl+o expands tool output · y/n answers approvals · "
+                "ctrl+o expands tool output · "
                 "ctrl+c interrupts · ctrl+d quits",
                 style="border",
             )
