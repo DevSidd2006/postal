@@ -233,9 +233,6 @@ y accept  ·   n reject  ·   esc reject   approval: ask - confirm every mutatin
 
 `y`, `a` or `enter` approves; `n`, `d`, `q`, `esc` or `ctrl+c` rejects. A rejection is fed back to the agent as a failed tool call, so it can pick a different approach rather than stopping.
 
-> [!NOTE]
-> One gap to be aware of: sub-agents run with their own auto-approving manager, so tool calls they make are not routed to you. Extending confirmations to sub-agents is on the [roadmap](#roadmap).
-
 ## Project instructions (`AGENTS.md`)
 
 Drop an `AGENTS.md` at the root of your repo and Postal loads it as developer instructions at startup. Use it for build and test commands, code style, or anything else the agent should know before touching your code.
@@ -266,7 +263,7 @@ Have an idea? [Open an issue](https://github.com/andrefetch/postal/issues), feat
 
 ## Contributing
 
-Contributions of every size are appreciated, from typo fixes to new tools and sub-agents. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started, and check the [open issues](https://github.com/andrefetch/postal/issues) for something to pick up.
+Contributions of every size are appreciated, from typo fixes to new tools and sub-agents. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started, and check the [open issues](https://github.com/andrefetch/postal/issues) for something to pick up!
 
 If Postal is useful to you, **a star on the repo genuinely helps** the project reach more developers. ⭐
 

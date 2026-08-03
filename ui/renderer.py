@@ -797,7 +797,7 @@ class TUI:
 
     def approval_badge(self) -> str:
         policy = self.approval_policy
-        return f"approval: {policy.label} - {policy.summary}"
+        return f"approval: {policy.label}"
 
     def render_approval_mode(self) -> None:
         policy = self.approval_policy
@@ -805,7 +805,7 @@ class TUI:
         line = Text.assemble(
             ("approval ", "muted"),
             (policy.label, style),
-            (f" — {policy.summary}", "muted"),
+            (f"", "muted"),
         )
         self.console.print(line)
 
