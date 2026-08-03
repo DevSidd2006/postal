@@ -16,22 +16,25 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.input import create_input
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.styles import Style
-from rich.box import ROUNDED
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
 from agent.agent import Agent
 from config.config import Config
+from ui.blocks import Gutter
 from ui.commands import SlashCommands
 from ui.logo import LOGO_WIDTH, POSTAL_VERSION, logo
-from ui.renderer import APPROVAL_RISK_STYLES, TUI, build_key_bindings, get_console
+from ui.renderer import (
+    PROMPT_MARK,
+    TUI,
+    build_key_bindings,
+    echo_user_message,
+    get_console,
+)
 from ui.stream import stream_turn
 from ui.theme import hex_colour
 
 HISTORY_FILE = "history"
-
-PROMPT_MARK = "❯"
 
 PROMPT_WIDTH = len("│ ") + len(PROMPT_MARK) + len(" ")
 
@@ -40,6 +43,8 @@ HELP_TITLE = 'Use /help for commands'
 
 BANNER_MIN_WIDTH = 2 + 2 + LOGO_WIDTH + 2 + len(WELCOME_TITLE)
 
+STATUS_MIN_WIDTH = 64
+
 PROMPT_STYLE = Style.from_dict(
     {
         "prompt": f"{hex_colour('accent')} bold",
@@ -47,8 +52,11 @@ PROMPT_STYLE = Style.from_dict(
         "bottom-toolbar": f"noreverse {hex_colour('slate')}",
         "bottom-toolbar.text": f"noreverse {hex_colour('slate')}",
         "approval": f"noreverse {hex_colour('accent')}",
-        "approval.warn": f"noreverse {hex_colour('sand')}",
+        "approval.warn": f"noreverse {hex_colour('amber')}",
         "approval.danger": f"noreverse bold {hex_colour('red')}",
+        "status": f"noreverse {hex_colour('graphite')}",
+        "status.warn": f"noreverse {hex_colour('amber')}",
+        "status.danger": f"noreverse bold {hex_colour('red')}",
     }
 )
 
@@ -105,6 +113,7 @@ class Repl:
             history=FileHistory(str(_history_path())),
             style=PROMPT_STYLE,
             key_bindings=build_key_bindings(self.tui),
+            erase_when_done=True,
         )
         self._reflowing = False
         self.session.default_buffer.on_text_changed += self._reflow
@@ -129,21 +138,26 @@ class Repl:
         finally:
             self._reflowing = False
 
-    def _box_bottom(self) -> None:
-        width = self.console.width
-        policy = self.config.approval
-        badge = f" approval: {policy.label} "
-        trailing = width - 3 - len(badge)
+    def _status_readout(self) -> tuple[str, str] | None:
+        if self.console.width < STATUS_MIN_WIDTH:
+            return None
 
-        if trailing < 1:
-            self.console.print(Text("╰" + "─" * (width - 2) + "╯", style="border"))
-            return
+        parts = [self.config.model_name.rsplit("/", 1)[-1]]
 
-        line = Text()
-        line.append("╰─", style="border")
-        line.append(badge, style=APPROVAL_RISK_STYLES.get(policy.risk, "info"))
-        line.append("─" * trailing + "╯", style="border")
-        self.console.print(line)
+        style = "status"
+        ratio = self.tui.context_ratio
+        if ratio is not None:
+            if ratio >= 0.9:
+                style = "status.danger"
+            elif ratio >= 0.7:
+                style = "status.warn"
+            parts.append(f"{ratio * 100:.0f}% ctx")
+
+        parts = [part for part in parts if part]
+        if not parts:
+            return None
+
+        return style, f" {' · '.join(parts)} "
 
     def _facts(self, agent: Agent | None) -> list[tuple[str, str]]:
         policy = self.config.approval
@@ -177,9 +191,7 @@ class Repl:
             body.add_row(head)
             body.add_row(Text())
             body.add_row(facts)
-            self.console.print(
-                Panel(body, box=ROUNDED, border_style="border", padding=(0, 1), expand=False)
-            )
+            self.console.print(Gutter(body, style="border"))
         else:
             self.console.print(Text("postal", style="highlight"))
             self.console.print(facts)
@@ -191,6 +203,7 @@ class Repl:
                 style="border",
             )
         )
+        self.tui.mark_dirty()
 
     def _farewell(self, agent: Agent) -> None:
         session = agent.session
@@ -201,15 +214,15 @@ class Repl:
 
         line = Text.assemble(("Session ", "muted"), (session.session_id, "subtitle"))
 
-        self.console.print()
-        self.console.print(line)
+        self.tui.gap()
+        self.tui.print_block(line)
 
         if self.config.session.enabled and session.store.exists(session.session_id):
-            self.console.print(
+            self.tui.print_block(
                 Text(f"Resume it with postal --resume {session.short_id}", style="border")
             )
         else:
-            self.console.print(Text("Keep this id to resume the session.", style="border"))
+            self.tui.print_block(Text("Keep this id to resume the session.", style="border"))
 
     def _reset_plan(self, agent: Agent) -> None:
         tool = agent.session.tool_registry.get("plan")
@@ -259,10 +272,12 @@ class Repl:
                 await task
         except asyncio.CancelledError:
             self.tui.stop_thinking()
-            self.console.print("\n[warning]Interrupted[/warning]")
+            self.tui.gap()
+            self.tui.print_block(Text("Interrupted", style="warning"))
         except Exception as exc:
             self.tui.stop_thinking()
-            self.console.print(f"[error]{type(exc).__name__}: {exc}[/error]")
+            self.tui.gap()
+            self.tui.print_block(Text(f"{type(exc).__name__}: {exc}", style="error"))
 
     def _prompt_fragments(self) -> StyleAndTextTuples:
         top = "╭" + "─" * (self.console.width - 2) + "╮\n"
@@ -287,14 +302,24 @@ class Repl:
         if trailing < 1:
             return [("class:frame", "╰" + "─" * (width - 2) + "╯")]
 
-        return [
+        fragments: StyleAndTextTuples = [
             ("class:frame", "╰─"),
             (APPROVAL_RISK_CLASSES.get(policy.risk, "class:approval"), badge),
-            ("class:frame", "─" * trailing + "╯"),
         ]
 
+        readout = self._status_readout()
+        if readout is not None and trailing - len(readout[1]) >= 2:
+            style, text = readout
+            fragments.append(("class:frame", "─" * (trailing - len(text))))
+            fragments.append((f"class:{style}", text))
+            fragments.append(("class:frame", "╯"))
+            return fragments
+
+        fragments.append(("class:frame", "─" * trailing + "╯"))
+        return fragments
+
     async def _read_input(self) -> str:
-        self.console.print()
+        self.tui.gap()
         try:
             message = await self.session.prompt_async(
                 self._prompt_fragments,
@@ -304,15 +329,19 @@ class Repl:
             return message.replace("\n", " ")
         finally:
             self.tui.expanded = False
-            self._box_bottom()
+
+    def _echo(self, message: str) -> None:
+        self.tui.gap()
+        self.tui.print_block(echo_user_message(message))
 
     def _resume_notice(self, agent: Agent) -> None:
         if agent.resumed is not None:
             self.commands.announce_resume(agent)
+            self.tui.mark_dirty()
             return
 
-        self.console.print()
-        self.console.print(
+        self.tui.gap()
+        self.tui.print_block(
             Text(f"No saved session matched '{self.resume}', starting a new one.", style="warning")
         )
 
@@ -338,8 +367,13 @@ class Repl:
                     if not message:
                         continue
 
+                    self._echo(message)
+
                     if self.commands.is_command(message):
-                        if not await self.commands.execute(agent, message):
+                        self.tui.gap()
+                        keep_going = await self.commands.execute(agent, message)
+                        self.tui.mark_dirty()
+                        if not keep_going:
                             break
                         continue
 

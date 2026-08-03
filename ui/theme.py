@@ -1,24 +1,44 @@
 from rich.theme import Theme
 
-PALETTE = {
-    "accent": "rgb(130,150,180)",
-    "sand": "rgb(200,170,120)",
-    "red": "rgb(200,90,90)",
-    "teal": "rgb(120,170,160)",
-    "graphite": "rgb(120,124,132)",
+NEUTRALS = {
+    "bright": "rgb(226,228,234)",
     "silver": "rgb(176,180,188)",
+    "graphite": "rgb(120,124,132)",
     "slate": "rgb(88,94,104)",
-    "bright": "rgb(224,226,232)",
-    "violet": "rgb(150,150,168)",
-    "read": "rgb(140,158,184)",
+    "accent": "rgb(130,150,180)",
+}
+
+HUES = {
+    "blue": "rgb(116,160,216)",
+    "green": "rgb(122,190,140)",
+    "amber": "rgb(214,170,102)",
+    "teal": "rgb(96,188,180)",
+    "violet": "rgb(160,144,220)",
+    "lilac": "rgb(198,148,214)",
+    "orange": "rgb(218,140,98)",
+    "magenta": "rgb(206,128,172)",
+    "red": "rgb(216,96,96)",
+}
+
+PALETTE = {**NEUTRALS, **HUES}
+
+TOOL_COLOURS = {
+    "read": PALETTE["blue"],
+    "write": PALETTE["green"],
+    "shell": PALETTE["amber"],
+    "network": PALETTE["teal"],
+    "memory": PALETTE["violet"],
+    "mcp": PALETTE["lilac"],
+    "git": PALETTE["orange"],
+    "subagent": PALETTE["magenta"],
 }
 
 AGENT_THEME = Theme(
     {
         "info": PALETTE["accent"],
-        "warning": PALETTE["sand"],
+        "warning": PALETTE["amber"],
         "error": f"bold {PALETTE['red']}",
-        "success": PALETTE["teal"],
+        "success": PALETTE["green"],
         "dim": "dim",
         "muted": PALETTE["graphite"],
         "subtitle": PALETTE["silver"],
@@ -32,16 +52,25 @@ AGENT_THEME = Theme(
         "reasoning.mark": PALETTE["violet"],
 
         "tool": f"bold {PALETTE['accent']}",
-        "tool.read": PALETTE["read"],
-        "tool.write": PALETTE["silver"],
-        "tool.shell": PALETTE["graphite"],
-        "tool.network": PALETTE["teal"],
-        "tool.memory": PALETTE["violet"],
-        "tool.mcp": PALETTE["violet"],
-        "tool.git": PALETTE["accent"],
-        "tool.subagent": PALETTE["sand"],
+        **{f"tool.{kind}": colour for kind, colour in TOOL_COLOURS.items()},
 
         "code": PALETTE["silver"],
+
+        "diff.plus": PALETTE["green"],
+        "diff.minus": PALETTE["red"],
+
+        "md.h1": f"bold {PALETTE['bright']}",
+        "md.h2": f"bold {PALETTE['bright']}",
+        "md.h3": f"bold {PALETTE['silver']}",
+        "md.bold": f"bold {PALETTE['bright']}",
+        "md.bolditalic": f"bold italic {PALETTE['bright']}",
+        "md.italic": f"italic {PALETTE['silver']}",
+        "md.strike": f"strike {PALETTE['graphite']}",
+        "md.code": PALETTE["amber"],
+        "md.link": f"underline {PALETTE['accent']}",
+        "md.bullet": PALETTE["accent"],
+        "md.quote": f"italic {PALETTE['graphite']}",
+        "md.rule": PALETTE["slate"],
     }
 )
 
@@ -58,13 +87,4 @@ def hex_colour(name: str) -> str:
 
 
 def tool_colour(tool_kind: str | None) -> str:
-    return {
-        "read": PALETTE["read"],
-        "write": PALETTE["silver"],
-        "shell": PALETTE["graphite"],
-        "network": PALETTE["teal"],
-        "memory": PALETTE["violet"],
-        "mcp": PALETTE["violet"],
-        "git": PALETTE["accent"],
-        "subagent": PALETTE["sand"],
-    }.get(tool_kind or "", PALETTE["accent"])
+    return TOOL_COLOURS.get(tool_kind or "", PALETTE["accent"])

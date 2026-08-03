@@ -2,6 +2,8 @@ from pathlib import Path
 from typing import Any, Tuple
 import re
 
+from rich.text import Text
+
 HEADLINE_KEYS = ("path", "command", "pattern", "url", "query", "action")
 
 BULKY_KEYS = frozenset({"content", "old_string", "new_string"})
@@ -160,11 +162,25 @@ def diff_glimpse(diff: str, max_lines: int = 3) -> str:
     return "\n".join(line[common:] for line in chosen)
 
 
-def diff_stat(diff: str) -> str:
+def diff_counts(diff: str) -> tuple[int, int]:
     added = removed = 0
     for line in diff.splitlines():
         if line.startswith("+") and not line.startswith("+++"):
             added += 1
         elif line.startswith("-") and not line.startswith("---"):
             removed += 1
+    return added, removed
+
+
+def diff_stat(diff: str) -> str:
+    added, removed = diff_counts(diff)
     return f"+{added} -{removed}"
+
+
+def diff_stat_text(diff: str) -> Text:
+    added, removed = diff_counts(diff)
+    stat = Text()
+    stat.append(f"+{added}", style="diff.plus")
+    stat.append(" ")
+    stat.append(f"-{removed}", style="diff.minus")
+    return stat
