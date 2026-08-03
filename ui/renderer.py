@@ -76,7 +76,8 @@ def build_key_bindings(tui: "TUI") -> KeyBindings:
     return bindings
 
 TOOL_ICON = "◇"
-REASONING_ICON = "✻"
+REASONING_FRAMES = [".", "·", "˙", "✦", "✧", "✦", "˙", "·"]
+REASONING_SPEED = 0.25
 REASONING_LABEL = "Thinking"
 
 THINKING_WORDS = [
@@ -225,6 +226,11 @@ class TUI:
     def _spinner_char(self) -> str:
         return SPINNER_FRAMES[self._spinner_frame % len(SPINNER_FRAMES)]
 
+    def _reasoning_char(self) -> str:
+        """The star twinkles slower than the tool spinner, so it reads as a pulse."""
+        frame = int(self._spinner_frame * REASONING_SPEED)
+        return REASONING_FRAMES[frame % len(REASONING_FRAMES)]
+
     async def _animate_spinner(self) -> None:
         try:
             while True:
@@ -299,7 +305,7 @@ class TUI:
         return self.config.reasoning.visible
 
     def _reasoning_renderable(self) -> Any:
-        line = Text.assemble((f"{REASONING_ICON} ", "reasoning.mark"))
+        line = Text.assemble((f"{self._reasoning_char()} ", "reasoning.mark"))
         line.append_text(shimmer(REASONING_LABEL, self._spinner_frame))
         elapsed = int(time.monotonic() - self._reasoning_started_at)
         line.append(f" ({elapsed}s)", style="muted")
