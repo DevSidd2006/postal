@@ -112,8 +112,6 @@ max_sessions = 50    # sessions kept before the oldest are dropped
 
 ## Technologies
 
-Postal is a terminal application, so "frontend" here means the interface layer you interact with, and "backend" the agent runtime behind it.
-
 ### Frontend
 
 | | |
@@ -141,8 +139,6 @@ Postal is a terminal application, so "frontend" here means the interface layer y
 
 ## Slash commands
 
-Type `/` in the TUI to drive the session directly:
-
 | Command | What it does |
 | --- | --- |
 | `/help` | Show all commands |
@@ -164,7 +160,7 @@ Type `/` in the TUI to drive the session directly:
 
 ## Sessions
 
-Postal writes the conversation to disk after every turn, so closing the terminal is not the end of it. Nothing has to be enabled: the session id is printed at startup and again on the way out, along with the command that brings it back.
+Postal writes the conversation to disk after every turn, so closing the terminal does not kill your conversation. All conversations are resume-able and can be accessed by running a command shown below.
 
 ```bash
 postal --continue        # resume the most recent session in this directory
@@ -215,42 +211,7 @@ Two rules apply on top of the policy, and no policy except `yolo` overrides them
 - **Dangerous commands are rejected.** `rm -rf /`, `dd if=`, `mkfs`, `shutdown`, `curl … | bash`, fork bombs, and similar patterns are refused before the shell ever sees them (the full list is `DANGEROUS_PATTERNS` in `safety/approval.py`).
 - **Anything touching a path outside the working directory is confirmed**, however permissive the policy is (`never` rejects it instead).
 
-The active policy is printed at startup and shown in the prompt badge, colour-coded by risk: normal for `ask`, `auto-edit` and `read-only`, amber for `auto` and `on fail`, red for `yolo`.
-
-### Answering a prompt
-
-When confirmation is needed, Postal pauses the stream and shows the tool, its arguments, the command it wants to run, and a diff for file edits:
-
-```text
-❎ edit  needs your approval
-Edit postal/config/config.py
-╰️---------------------------------------------️
-╿ approval: ApprovalPolicy = ON_REQUEST ╿
-╿+ approval: ApprovalPolicy = AUTO_EDIT  ╿
-╰️---------------------------------------------️
-y accept  ·   n reject  ·   esc reject   approval: ask - confirm every mutating tool
-```
-
-`y`, `a` or `enter` approves; `n`, `d`, `q`, `esc` or `ctrl+c` rejects. A rejection is fed back to the agent as a failed tool call, so it can pick a different approach rather than stopping.
-
-## Project instructions (`AGENTS.md`)
-
-Drop an `AGENTS.md` at the root of your repo and Postal loads it as developer instructions at startup. Use it for build and test commands, code style, or anything else the agent should know before touching your code.
-
-Postal walks up from the working directory to the repository root, so running `postal` inside a subdirectory still picks up the root file. Every `AGENTS.md` found along the way is included, ordered outermost first.
-
-```markdown
-# AGENTS.md
-
-## Commands
-- Test: `pytest`
-- Lint: `ruff check .`
-
-## Style
-- Type hints on all public functions.
-```
-
-The scope of an `AGENTS.md` file is the directory tree it sits in, and the more deeply nested file wins on conflicts. Files below the working directory are read on demand as the agent works in those subdirectories. Instructions you give directly in a prompt always take precedence over `AGENTS.md`.
+The active policy is printed at startup and shown in the prompt badge, color-coded by risk: normal for `ask`, `auto-edit` and `read-only`, amber for `auto` and `on fail`, red for `yolo`.
 
 ## Roadmap
 
@@ -258,6 +219,7 @@ Currently being worked on:
 
 - **Skill Integration** - allows users to import skills and use with their favorite model.
 - **Git Integration** - allows users to use git commands with postal.
+- **More assets** - Logo, banner, etc
 
 Have an idea? [Open an issue](https://github.com/andrefetch/postal/issues), feature discussions are very welcome.
 
