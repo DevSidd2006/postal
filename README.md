@@ -116,7 +116,7 @@ max_sessions = 50    # sessions kept before the oldest are dropped
 
 | | |
 | --- | --- |
-| **[Rich](https://github.com/Textualize/rich)** | The whole TUI: full-screen live rendering, streaming responses, tool call panels, diffs, markdown, and the colour theme. |
+| **[Rich](https://github.com/Textualize/rich)** | The whole TUI: full-screen live rendering, streaming responses, tool call panels, diffs, markdown, and the color theme. |
 | **[prompt-toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit)** | The input line: key bindings, multiline editing, history, and slash command completion. |
 | **[Pygments](https://pygments.org/)** | Syntax highlighting for code blocks and file previews rendered through Rich. |
 
