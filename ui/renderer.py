@@ -25,7 +25,7 @@ from ui.format import (
     secondary_args,
     summarise_value,
 )
-from ui.theme import AGENT_THEME
+from ui.theme import AGENT_THEME, rgb_parts
 from utils.paths import display_path_relative_to_cwd
 from utils.text import truncate_text
 from collections import deque
@@ -90,6 +90,26 @@ THINKING_WORDS = [
 
 def random_thinking_text() -> str:
     return random.choice(THINKING_WORDS)
+
+
+SHIMMER_BASE = rgb_parts("silver")
+SHIMMER_PEAK = (255, 255, 255)
+SHIMMER_WIDTH = 3.0
+SHIMMER_SPEED = 0.28
+SHIMMER_GAP = 10
+
+
+def shimmer(label: str, frame: int) -> Text:
+    head = (frame * SHIMMER_SPEED) % (len(label) + SHIMMER_GAP)
+    text = Text()
+    for index, char in enumerate(label):
+        weight = max(0.0, 1.0 - (abs(index - head) / SHIMMER_WIDTH) ** 2)
+        r, g, b = (
+            round(base + (peak - base) * weight)
+            for base, peak in zip(SHIMMER_BASE, SHIMMER_PEAK)
+        )
+        text.append(char, style=f"bold rgb({r},{g},{b})")
+    return text
 
 
 class Gutter:
@@ -205,9 +225,8 @@ class TUI:
         return Group(Text(""), line)
 
     def _thinking_renderable(self) -> Any:
-        line = Text.assemble(
-            (f"{self._spinner_char()} ", "tool"), (self._thinking_label, "highlight")
-        )
+        line = Text.assemble((f"{self._spinner_char()} ", "tool"))
+        line.append_text(shimmer(self._thinking_label, self._spinner_frame))
         elapsed = int(time.monotonic() - self._thinking_started_at)
         line.append(f" ({elapsed}s", style="muted")
         line.append(" · ", style="dim")

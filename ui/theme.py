@@ -46,9 +46,14 @@ AGENT_THEME = Theme(
 )
 
 
+def rgb_parts(name: str) -> tuple[int, int, int]:
+    r, g, b = (int(part) for part in PALETTE[name][4:-1].split(","))
+    return r, g, b
+
+
 def hex_colour(name: str) -> str:
 
-    r, g, b = (int(part) for part in PALETTE[name][4:-1].split(","))
+    r, g, b = rgb_parts(name)
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
