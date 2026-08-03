@@ -2,7 +2,7 @@ from config.config import Config
 from hooks.hook_system import HookSystem
 from safety.approval import ApprovalContext, ApprovalDecision, ApprovalManager
 from tools.base import Tool
-from typing import Any
+from typing import Any, Callable
 from pathlib import Path
 from tools.base import ToolResult, ToolInvocation
 from tools.core import ReadFileTool, get_all_core_tools
@@ -71,7 +71,8 @@ class ToolRegistry:
             params: dict[str, Any],
             cwd: Path | None,
             hook_system: HookSystem,
-            approval_manager: ApprovalManager | None = None
+            approval_manager: ApprovalManager | None = None,
+            progress_callback: Callable[[str], None] | None = None,
         ) -> ToolResult:
         tool = self.get(name)
         if tool is None:
@@ -105,6 +106,7 @@ class ToolRegistry:
             confirmation_callback=(
                 approval_manager.confirmation_callback if approval_manager else None
             ),
+            progress_callback=progress_callback,
         )
         if approval_manager:
             confirmation = await tool.get_confirmation(invocation)

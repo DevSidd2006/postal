@@ -16,10 +16,13 @@ class Agent:
         config: Config,
         confirmation_callback: Callable[[ToolConfirmation], Awaitable[bool]] | None = None,
         resume: str | None = None,
+        progress_callback: Callable[[str], None] | None = None,
     ):
         self.config = config
         self.session: Session | None = Session(self.config)
         self.session.approval_manager.confirmation_callback = confirmation_callback
+
+        self.progress_callback = progress_callback
 
         # Resolved on entry, once the session has a context manager to fill.
         self._resume = resume
@@ -179,6 +182,7 @@ class Agent:
                     self.config.cwd,
                     self.session.hook_system,
                     self.session.approval_manager,
+                    progress_callback=self.progress_callback,
                 )
 
                 yield AgentEvent.tool_call_complete(

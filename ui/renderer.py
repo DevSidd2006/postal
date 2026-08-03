@@ -4,19 +4,19 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 
 from rich.box import ROUNDED
-from rich.console import Console, ConsoleOptions, Group, RenderResult
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.text import Text
-from rich.segment import Segment
 from rich.table import Table
 from rich.live import Live
 from rich.syntax import Syntax
 
 from config.config import ApprovalPolicy, Config
 from tools.base import ToolConfirmation
+from ui.blocks import Gutter
 from ui.format import (
     diff_glimpse,
-    diff_stat,
+    diff_stat_text,
     extract_read_code,
     format_elapsed,
     guess_language,
@@ -25,6 +25,8 @@ from ui.format import (
     secondary_args,
     summarise_value,
 )
+from ui.markdown import MarkdownStream, render_inline
+from ui.syntax import POSTAL_SYNTAX
 from ui.theme import AGENT_THEME, rgb_parts
 from utils.paths import display_path_relative_to_cwd
 from utils.text import truncate_text
@@ -37,8 +39,6 @@ import time
 
 SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 SPINNER_INTERVAL = 0.04
-
-GUTTER_CHAR = "│"
 
 MAX_BLOCK_TOKENS = 2400
 MAX_DIFF_TOKENS = 4000
@@ -77,6 +77,7 @@ def build_key_bindings(tui: "TUI") -> KeyBindings:
 
 TOOL_ICON = "◇"
 REASONING_ICON = "✻"
+REASONING_LABEL = "Thinking"
 
 THINKING_WORDS = [
     "Thinking…",
@@ -87,9 +88,44 @@ THINKING_WORDS = [
     "Helping…",
 ]
 
+TOOL_THINKING_WORDS = {
+    "read": "Reading…",
+    "write": "Writing…",
+    "edit": "Editing…",
+    "shell": "Running…",
+    "list_dir": "Looking around…",
+    "grep": "Searching…",
+    "glob": "Searching…",
+    "search": "Searching…",
+    "fetch": "Fetching…",
+    "plan": "Planning…",
+    "memory": "Remembering…",
+}
+
+KIND_THINKING_WORDS = {
+    "read": "Reading…",
+    "write": "Editing…",
+    "shell": "Running…",
+    "network": "Fetching…",
+    "memory": "Remembering…",
+    "mcp": "Working…",
+    "git": "Checking git…",
+    "subagent": "Delegating…",
+}
+
+SLOW_TOOL_SECONDS = 2.0
+
+PROGRESS_MAX_WIDTH = 48
+
 
 def random_thinking_text() -> str:
     return random.choice(THINKING_WORDS)
+
+
+def thinking_text_for(tool_name: str, tool_kind: str | None = None) -> str:
+    if tool_name in TOOL_THINKING_WORDS:
+        return TOOL_THINKING_WORDS[tool_name]
+    return KIND_THINKING_WORDS.get(tool_kind or "", random_thinking_text())
 
 
 SHIMMER_BASE = rgb_parts("silver")
@@ -112,26 +148,6 @@ def shimmer(label: str, frame: int) -> Text:
     return text
 
 
-class Gutter:
-
-    def __init__(self, renderable: Any, style: str = "border") -> None:
-        self.renderable = renderable
-        self.style = style
-
-    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
-        bar = Segment(f"{GUTTER_CHAR} ", console.get_style(self.style))
-        body_width = max(options.max_width - 2, 1)
-        lines = console.render_lines(
-            self.renderable,
-            options.update(width=body_width),
-            pad=False,
-        )
-        for line in lines:
-            yield bar
-            yield from line
-            yield Segment("\n")
-
-
 _console: Console | None = None
 
 
@@ -148,11 +164,15 @@ class TUI:
         self.config = config
         self.cwd = config.cwd
         self._assistant_stream_open = False
+        self._assistant_markdown: MarkdownStream | None = None
         self._reasoning_stream_open = False
         self._reasoning_line = ""
         self._reasoning_started_at = 0.0
         self.tool_args_by_call_id: dict[str, dict[str, Any]] = {}
         self.tool_started_at: dict[str, float] = {}
+        self._tool_progress = ""
+
+        self._at_gap = True
 
         self.collapsed = True
         self.expanded = False
@@ -167,6 +187,7 @@ class TUI:
         self._thinking_label = ""
         self._thinking_started_at = 0.0
         self._turn_tokens = 0
+        self._context_tokens = 0
 
         # Set by the REPL while it owns the keyboard, so confirmations can be
         # answered through its key reader instead of opening a second one.
@@ -181,6 +202,25 @@ class TUI:
     def awaiting_confirmation(self) -> bool:
         return self._pending_confirmation is not None
 
+    @property
+    def context_ratio(self) -> float | None:
+        window = self.config.model.context_window
+        if not window or not self._context_tokens:
+            return None
+        return min(self._context_tokens / window, 1.0)
+
+    def gap(self) -> None:
+        if not self._at_gap:
+            self.console.print()
+            self._at_gap = True
+
+    def print_block(self, *renderables: Any) -> None:
+        for renderable in renderables:
+            self.console.print(renderable)
+        self._at_gap = False
+
+    def mark_dirty(self) -> None:
+        self._at_gap = False
 
     def _spinner_char(self) -> str:
         return SPINNER_FRAMES[self._spinner_frame % len(SPINNER_FRAMES)]
@@ -238,6 +278,7 @@ class TUI:
         if not usage:
             return
         self._turn_tokens = usage.get("total_tokens", 0) or 0
+        self._context_tokens = usage.get("prompt_tokens", 0) or self._context_tokens
 
     def start_thinking(self, label: str | None = None) -> None:
         self._thinking_label = label if label is not None else random_thinking_text()
@@ -257,19 +298,23 @@ class TUI:
     def show_reasoning(self) -> bool:
         return self.config.reasoning.visible
 
+    def _reasoning_renderable(self) -> Any:
+        line = Text.assemble((f"{REASONING_ICON} ", "reasoning.mark"))
+        line.append_text(shimmer(REASONING_LABEL, self._spinner_frame))
+        elapsed = int(time.monotonic() - self._reasoning_started_at)
+        line.append(f" ({elapsed}s)", style="muted")
+        return line
+
     def begin_reasoning(self) -> None:
         if not self.show_reasoning or self._reasoning_stream_open:
             return
 
-        self._stop_spinner()
         self._reasoning_stream_open = True
         self._reasoning_line = ""
         self._reasoning_started_at = time.monotonic()
 
-        self.console.print()
-        self.console.print(
-            Text.assemble((f"{REASONING_ICON} ", "reasoning.mark"), ("Thinking", "subtitle"))
-        )
+        self.gap()
+        self._start_spinner(self._reasoning_renderable)
 
     def stream_reasoning_delta(self, content: str) -> None:
         """Reasoning is printed a line at a time so the gutter can wrap with it."""
@@ -286,29 +331,45 @@ class TUI:
         if not self._reasoning_stream_open:
             return
 
+        self._stop_spinner()
+
         if self._reasoning_line.strip():
             self._print_reasoning_line(self._reasoning_line)
         self._reasoning_line = ""
         self._reasoning_stream_open = False
 
         elapsed = format_elapsed(time.monotonic() - self._reasoning_started_at)
-        self.console.print(Text(f"  thought for {elapsed}", style="dim"))
+        self.print_block(Text(f"  thought for {elapsed}", style="dim"))
 
     def _print_reasoning_line(self, line: str) -> None:
-        self.console.print(Gutter(Text(line.rstrip(), style="reasoning"), style="reasoning.mark"))
+        self.print_block(
+            Gutter(Text(line.rstrip(), style="reasoning"), style="reasoning.mark")
+        )
 
     def begin_assistant(self) -> None:
         self._stop_spinner()
-        self.console.print()
+        self.gap()
+        self._assistant_markdown = MarkdownStream(self._print_assistant_block)
         self._assistant_stream_open = True
 
     def end_assistant(self) -> None:
+        if self._assistant_markdown is not None:
+            self._assistant_markdown.close()
+            self._assistant_markdown = None
         if self._assistant_stream_open:
-            self.console.print()
+            self.gap()
         self._assistant_stream_open = False
 
+    def _print_assistant_block(self, renderable: Any) -> None:
+        if isinstance(renderable, Text) and not renderable.plain:
+            self.gap()
+            return
+        self.print_block(renderable)
+
     def stream_assistant_delta(self, content: str) -> None:
-        self.console.print(content, end="", markup=False)
+        if self._assistant_markdown is None:
+            return
+        self._assistant_markdown.feed(content)
 
 
     def _relativise(self, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -324,10 +385,11 @@ class TUI:
         if not steps:
             return Text("No plan steps.", style="muted")
 
-        checklist = Table.grid(padding=(0, 1))
+        checklist = Table.grid(padding=(0, 1), expand=True)
+        checklist.add_column(style="border", no_wrap=True)
         checklist.add_column(no_wrap=True)
-        checklist.add_column(overflow="fold")
-        checklist.add_column(style="muted", no_wrap=True, justify="right")
+        checklist.add_column(overflow="fold", ratio=1)
+        checklist.add_column(style="dim", no_wrap=True, justify="right")
 
         markers = {
             "completed": ("✔", "success", "muted strike"),
@@ -335,11 +397,13 @@ class TUI:
             "pending": ("☐", "muted", "code"),
         }
 
-        for step in steps:
+        last = len(steps) - 1
+        for index, step in enumerate(steps):
             marker, marker_style, content_style = markers.get(
                 str(step.get("status")), markers["pending"]
             )
             checklist.add_row(
+                "╰─" if index == last else "├─",
                 Text(marker, style=marker_style),
                 Text(str(step.get("content", "")), style=content_style),
                 Text(str(step.get("id", ""))),
@@ -400,22 +464,22 @@ class TUI:
     def _print_tool(
         self, header: Table, blocks: list[Any], border_style: str, hint: bool = False
     ) -> None:
-        self.console.print()
-        self.console.print(header)
+        self.gap()
+        self.print_block(header)
         if blocks:
-            self.console.print(Gutter(Group(*blocks), style=border_style))
+            self.print_block(Gutter(Group(*blocks), style=border_style))
         if hint:
-            self.console.print(Text("ctrl+o expands output", style="dim"))
+            self.print_block(Text("ctrl+o expands output", style="dim"))
 
     def toggle_details(self) -> None:
         self.collapsed = not self.collapsed
         state = "collapsed" if self.collapsed else "expanded"
-        self.console.print(Text(f"Tool output is now {state}.", style="muted"))
+        self.print_block(Text(f"Tool output is now {state}.", style="muted"))
 
     def show_recent_tool(self, back: int = 1) -> None:
 
         if not self._recent_tools or back < 1 or back > len(self._recent_tools):
-            self.console.print(Text("Nothing to expand.", style="muted"))
+            self.print_block(Text("Nothing to expand.", style="muted"))
             return
         header, summary, details, border_style = self._recent_tools[-back]
         self._print_tool(header, summary + details, border_style)
@@ -469,6 +533,7 @@ class TUI:
         started_at = time.monotonic()
         self.tool_started_at[call_id] = started_at
         head = headline_of(display_args)
+        self._tool_progress = ""
 
         def render() -> Any:
             line = Text.assemble(
@@ -479,9 +544,21 @@ class TUI:
                 line.append(head[1], style="subtitle")
             elapsed = int(time.monotonic() - started_at)
             line.append(f" {elapsed}s", style="muted")
+            if self._tool_progress:
+                line.append(" › ", style="dim")
+                line.append(self._tool_progress, style="muted")
             return self._live_group(line)
 
         self._start_spinner(render)
+
+    def tool_progress(self, chunk: str) -> None:
+        line = chunk.strip().splitlines()[-1] if chunk.strip() else ""
+        if not line:
+            return
+
+        if len(line) > PROGRESS_MAX_WIDTH:
+            line = f"{line[:PROGRESS_MAX_WIDTH - 1]}…"
+        self._tool_progress = line
 
     def tool_call_complete(
         self,
@@ -497,6 +574,7 @@ class TUI:
         exit_code: int | None,
     ) -> None:
         self._stop_spinner()
+        self._tool_progress = ""
 
         border_style = f"tool.{tool_kind}" if tool_kind else "tool"
         started_at = self.tool_started_at.pop(call_id, None)
@@ -518,7 +596,8 @@ class TUI:
             return Syntax(
                 truncate_text(output, self.config.model_name, MAX_BLOCK_TOKENS),
                 style_name,
-                theme="nord",
+                theme=POSTAL_SYNTAX,
+                background_color="default",
                 word_wrap=True,
             )
 
@@ -550,7 +629,8 @@ class TUI:
                 Syntax(
                     code,
                     guess_language(primary_path),
-                    theme="nord",
+                    theme=POSTAL_SYNTAX,
+                    background_color="default",
                     line_numbers=True,
                     start_line=start_line,
                     word_wrap=False,
@@ -558,10 +638,11 @@ class TUI:
             )
 
         elif name in {"write", "edit"}:
-            parts: list[Any] = [output.strip() or "Completed"]
+            headline_text = Text(output.strip() or "Completed", style="muted")
             if diff:
-                parts.append(diff_stat(diff))
-            summary.append(joined(parts))
+                headline_text.append(" ┈ ", style="muted")
+                headline_text.append_text(diff_stat_text(diff))
+            summary.append(headline_text)
             if diff:
                 glimpse = diff_glimpse(diff)
                 if glimpse:
@@ -569,7 +650,7 @@ class TUI:
                         Syntax(
                             glimpse,
                             guess_language(primary_path or args.get("path")),
-                            theme="nord",
+                            theme=POSTAL_SYNTAX,
                             word_wrap=False,
                             background_color="default",
                         )
@@ -578,7 +659,8 @@ class TUI:
                     Syntax(
                         truncate_text(diff, self.config.model_name, MAX_DIFF_TOKENS),
                         "diff",
-                        theme="nord",
+                        theme=POSTAL_SYNTAX,
+                        background_color="default",
                         word_wrap=True,
                     )
                 )
@@ -745,7 +827,13 @@ class TUI:
             diff = "\n".join(lines).strip()
             if diff:
                 blocks.append(
-                    Syntax(diff, "diff", theme="nord", word_wrap=True, background_color="default")
+                    Syntax(
+                        diff,
+                        "diff",
+                        theme=POSTAL_SYNTAX,
+                        word_wrap=True,
+                        background_color="default",
+                    )
                 )
 
         if not blocks:
@@ -770,16 +858,16 @@ class TUI:
         if self.cwd:
             description = description.replace(f"{self.cwd}/", "")
 
-        self.console.print()
-        self.console.print(title)
-        self.console.print(Text(description, style="muted"))
-        self.console.print(
+        self.gap()
+        self.print_block(
+            title,
+            Text(description, style="muted"),
             Panel(
                 self._confirmation_body(confirmation),
                 box=ROUNDED,
                 border_style=border,
                 padding=(0, 1),
-            )
+            ),
         )
 
         choices = Text()
@@ -793,7 +881,7 @@ class TUI:
         choices.append(" reject", style="muted")
         choices.append("   ", style="dim")
         choices.append(self.approval_badge(), style="muted")
-        self.console.print(choices)
+        self.print_block(choices)
 
     def approval_badge(self) -> str:
         policy = self.approval_policy
@@ -805,9 +893,8 @@ class TUI:
         line = Text.assemble(
             ("approval ", "muted"),
             (policy.label, style),
-            (f"", "muted"),
         )
-        self.console.print(line)
+        self.print_block(line)
 
     def feed_confirmation_key(self, key_press: Any) -> bool:
         """Answer a pending confirmation. Returns True when the key was consumed."""
@@ -865,12 +952,12 @@ class TUI:
             else:
                 approved = await self._read_confirmation_key(pending)
         except asyncio.CancelledError:
-            self.console.print(Text("Rejected (interrupted)", style="warning"))
+            self.print_block(Text("Rejected (interrupted)", style="warning"))
             raise
         finally:
             self._pending_confirmation = None
 
-        self.console.print(
+        self.print_block(
             Text("Approved", style="success") if approved else Text("Rejected", style="error")
         )
 
@@ -887,6 +974,7 @@ class TUI:
         completion_tokens = usage.get("completion_tokens", 0) or 0
         cached_tokens = usage.get("cached_tokens", 0) or 0
         context_window = self.config.model.context_window
+        self._context_tokens = prompt_tokens or self._context_tokens
 
         line = Text()
         line.append("context ", style="muted")
@@ -906,11 +994,17 @@ class TUI:
             line.append("   ·   ", style="muted")
             line.append(f"{cached_tokens:,} cached", style="muted")
 
-        self.console.print()
-        self.console.print(line)
+        self.gap()
+        self.print_block(line)
 
 TRANSCRIPT_MESSAGES = 12
 TRANSCRIPT_LINES = 6
+
+PROMPT_MARK = "❯"
+
+
+def echo_user_message(content: str) -> Text:
+    return Text.assemble((f"{PROMPT_MARK} ", "info"), (content, "user"))
 
 
 def _transcript_body(content: str, max_lines: int = TRANSCRIPT_LINES) -> str:
@@ -951,13 +1045,13 @@ def render_transcript(
         if message.role == "user":
             if content:
                 console.print()
-                console.print(
-                    Text.assemble(("❯ ", "border"), (_transcript_body(content), "user"))
-                )
+                console.print(echo_user_message(_transcript_body(content)))
             continue
 
         if content:
-            console.print(Gutter(Text(_transcript_body(content), style="assistant")))
+            console.print(
+                Gutter(render_inline(_transcript_body(content), base_style="assistant"))
+            )
 
         for tool_call in message.tool_calls or []:
             name = tool_call.get("function", {}).get("name", "tool")
