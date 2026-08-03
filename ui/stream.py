@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from agent.agent import Agent
 from agent.events import AgentEventType
-from ui.renderer import TUI, random_thinking_text
+from ui.renderer import TUI, random_thinking_text, thinking_text_for
 
 
 def _tool_kind(agent: Agent, tool_name: str) -> str | None:
@@ -16,6 +16,8 @@ async def stream_turn(tui: TUI, agent: Agent, message: str) -> str | None:
     streaming = False
     failed = False
     label = random_thinking_text()
+
+    agent.progress_callback = tui.tool_progress
 
     try:
         async for event in agent.run(message):
@@ -56,10 +58,11 @@ async def stream_turn(tui: TUI, agent: Agent, message: str) -> str | None:
 
             elif event.type == AgentEventType.TOOL_CALL_COMPLETE:
                 name = event.data.get("name", "unknown")
+                kind = _tool_kind(agent, name)
                 tui.tool_call_complete(
                     event.data.get("call_id", ""),
                     name,
-                    _tool_kind(agent, name),
+                    kind,
                     event.data.get("success", False),
                     event.data.get("output", ""),
                     event.data.get("error"),
@@ -68,6 +71,7 @@ async def stream_turn(tui: TUI, agent: Agent, message: str) -> str | None:
                     event.data.get("diff"),
                     event.data.get("exit_code"),
                 )
+                label = thinking_text_for(name, kind)
                 tui.start_thinking(label)
 
             elif event.type == AgentEventType.AGENT_END:
@@ -76,7 +80,8 @@ async def stream_turn(tui: TUI, agent: Agent, message: str) -> str | None:
 
             elif event.type == AgentEventType.AGENT_ERROR:
                 tui.stop_thinking()
-                tui.console.print(f"[error]{event.data.get('error')}[/error]")
+                tui.gap()
+                tui.print_block(f"[error]{event.data.get('error')}[/error]")
                 failed = True
                 break
     finally:
@@ -84,5 +89,6 @@ async def stream_turn(tui: TUI, agent: Agent, message: str) -> str | None:
         tui.end_reasoning()
         if streaming:
             tui.end_assistant()
+        agent.progress_callback = None
 
     return None if failed else final_response

@@ -115,6 +115,15 @@ class ToolInvocation:
     # Parent session's confirmation callback, so tools that spawn nested
     # agents (subagents) keep routing approvals through the user.
     confirmation_callback: Callable[['ToolConfirmation'], Awaitable[bool]] | None = None
+    progress_callback: Callable[[str], None] | None = None
+
+    def report_progress(self, chunk: str) -> None:
+        if self.progress_callback is None:
+            return
+        try:
+            self.progress_callback(chunk)
+        except Exception:
+            pass
 
 class Tool(abc.ABC):
     name: str = "base_tool"

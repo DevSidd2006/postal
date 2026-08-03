@@ -1,4 +1,5 @@
 import asyncio
+import codecs
 import os
 import fnmatch
 from pathlib import Path
@@ -118,12 +119,22 @@ class ShellTool(Tool):
             env=env,
             start_new_session=True,
         )
+
+        stdout_chunks: list[str] = []
+        stderr_chunks: list[str] = []
+
+        pumps = asyncio.gather(
+            self._pump(process.stdout, stdout_chunks, invocation),
+            self._pump(process.stderr, stderr_chunks, invocation),
+        )
+
         try:
-            stdout_data, stderr_data = await asyncio.wait_for(
-                process.communicate(),
+            await asyncio.wait_for(
+                asyncio.gather(pumps, process.wait()),
                 timeout = params.timeout
             )
         except asyncio.TimeoutError:
+            pumps.cancel()
             if sys.platform != 'win32':
                 os.killpg(os.getpgid(process.pid), signal.SIGKILL)
             else:
@@ -132,18 +143,11 @@ class ShellTool(Tool):
             return ToolResult.error_result(
                 f'Command timed out after: {params.timeout}'
             )
-        
+
         exit_code = process.returncode
 
-        stdout = stdout_data.decode(
-            'utf-8',
-            errors='replace'
-        )
-
-        stderr = stderr_data.decode(
-            'utf-8',
-            errors='replace'
-        )
+        stdout = "".join(stdout_chunks)
+        stderr = "".join(stderr_chunks)
 
         output = ""
         if stdout.strip():
@@ -165,6 +169,33 @@ class ShellTool(Tool):
             error=stderr if exit_code != 0 else None,
             exit_code=exit_code,
         )
+
+    async def _pump(
+        self,
+        stream: asyncio.StreamReader | None,
+        chunks: list[str],
+        invocation: ToolInvocation,
+    ) -> None:
+        if stream is None:
+            return
+
+        decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
+
+        while True:
+            data = await stream.read(8192)
+            if not data:
+                break
+
+            text = decoder.decode(data)
+            if not text:
+                continue
+
+            chunks.append(text)
+            invocation.report_progress(text)
+
+        tail = decoder.decode(b"", final=True)
+        if tail:
+            chunks.append(tail)
 
     def _build_environment(self) -> dict[str, str]:
         env = os.environ.copy()
