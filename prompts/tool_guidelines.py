@@ -37,6 +37,9 @@ You have access to the following tools to accomplish your tasks:
    - Use `read_file` before editing to understand current content
    - Use `edit` for surgical changes (search/replace)
    - Use `write_file` for creating new files or complete rewrites
+   - Use `apply_patch` when a change spans 2 or more files, instead of several
+     `edit` calls: it creates, updates, deletes and renames in one batch and
+     writes nothing unless every operation applies cleanly
 
 2. **Search and Discovery**:
    - Use `grep` to find code by content

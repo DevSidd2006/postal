@@ -2,6 +2,7 @@ from tools.core.directories import ListDirectoriesTool
 from tools.core.read import ReadFileTool
 from tools.core.write import WriteFileTool
 from tools.core.edit import EditTool
+from tools.core.apply_patch import ApplyPatchTool
 from tools.core.shell import ShellTool
 from tools.core.grep import GrepTool
 from tools.core.glob import GlobTool
@@ -18,6 +19,7 @@ __all__ = [
     'ReadFileTool',
     'WriteFileTool',
     'EditTool',
+    'ApplyPatchTool',
     'ShellTool',
     'ListDirectoriesTool',
     'GrepTool',
@@ -33,6 +35,7 @@ def get_all_core_tools() -> list[Tool]:
         ReadFileTool,
         WriteFileTool,
         EditTool,
+        ApplyPatchTool,
         ShellTool,
         ListDirectoriesTool,
         GrepTool,
