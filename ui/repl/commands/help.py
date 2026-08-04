@@ -10,23 +10,23 @@ HELP_TEXT = """\
 
 - `/help` - Show this help
 - `/exit` or `/quit` - Exit the agent
-- `/clear` - Clear conversation history
-- `/config` - Show current configuration
-- `/model <name>` - Change the model
-- `/approval <mode>` - Change approval mode
-- `/thinking [on|off|low|medium|high]` - Show or configure model reasoning
-- `/stats` - Show session statistics
-- `/tools` - List available tools
-- `/mcp` - Show MCP server status
+- `/clear` - Clear conversation history for a fresh start (old session is still saved)
+- `/config` - Show current configuration options and their values
+- `/model <name>` - Change the model mid-session (e.g. `/model gpt-4o` or `/model anthropic/claude-sonnet-4.5`)
+- `/approval <mode>` - Change approval mode (e.g. `/approval yolo` or `/approval auto_edit`)
+- `/thinking [on|off|low|medium|high]` - Show or configure model reasoning (e.g. `/thinking high`)
+- `/stats` - Show session statistics (token counts, time elapsed, tool calls)
+- `/tools` - List available tools the agent can use
+- `/mcp` - Show connected MCP server status
 
 ## Sessions
 
-- `/sessions [all]` - List saved sessions, newest first
-- `/sessions rm <n|id>` - Delete a saved session
-- `/resume <n|id>` - Load a saved session into this one
-- `/checkpoint [label]` - Save a checkpoint now, with an optional name
+- `/sessions [all]` - List saved sessions, newest first (e.g. `/sessions all` for every directory)
+- `/sessions rm <n|id>` - Delete a saved session (e.g. `/sessions rm 1` or `/sessions rm 3f2a1c`)
+- `/resume <n|id>` - Load a saved session into this one (e.g. `/resume 1` or `/resume 3f2a1c`)
+- `/checkpoint [label]` - Save a checkpoint now, with an optional name (e.g. `/checkpoint before refactor`)
 - `/checkpoints` - List checkpoints in this session
-- `/rewind <n|id>` - Roll the conversation back to a checkpoint
+- `/rewind <n|id>` - Roll the conversation back to a previous checkpoint (e.g. `/rewind 2`)
 
 ## Tips
 
