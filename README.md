@@ -49,67 +49,46 @@ postal --cwd /path       # run against a different working directory
 postal --continue        # pick up the last session in this directory
 postal --resume 3f2a1c   # resume a specific session by id
 postal sessions          # list saved sessions
-postal login --paste     # paste an API key instead of browser OAuth
-postal logout            # remove the saved API key
 ```
 
-Model, temperature, and context window live in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`:
+Configuration lives in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`, and `AGENTS.md` is picked up automatically.
 
-```toml
-[model]
-name = "anthropic/claude-sonnet-4.5"
+Full [CLI reference](docs/cli.md) · [configuration reference](docs/configuration.md)
 
-[reasoning]
-enabled = true     # ask the model to think (ignored by models that cannot)
-effort = "medium"  # "minimal", "low", "medium", "high", or omit for the provider default
-# max_tokens = 4000  # a thinking budget instead of an effort level
-visible = true     # stream the thinking into the transcript
+## Documentation
 
-[session]
-enabled = true       # save the conversation so it can be resumed
-max_checkpoints = 20 # snapshots kept per session
-max_sessions = 50    # sessions kept before the oldest are dropped
-```
+| Page | What it covers |
+| --- | --- |
+| [CLI reference](docs/cli.md) | Installing, logging in, every command and flag |
+| [Configuration](docs/configuration.md) | `config.toml`, per-project overrides, `AGENTS.md`, every option |
+| [Tools](docs/tools.md) | The built-in tool set, sub-agents, MCP servers |
+| [Approvals](docs/approvals.md) | The six approval policies and the rules that override them |
+| [Sessions](docs/sessions.md) | Saving, resuming, checkpointing and rewinding conversations |
+| [Slash commands](docs/slash-commands.md) | Everything you can type after a `/` inside the TUI |
+| [Architecture](docs/architecture.md) | How the codebase is put together, class by class |
+| [Technologies](docs/technologies.md) | The libraries Postal is built on and what each one does |
 
 ## Why Postal?
 
 - **Bring any model.** OpenRouter as the backend means one login gives you Claude, GPT, Gemini, DeepSeek, open-weight models, and whatever ships next. No vendor lock-in.
-- **Safety is a first-class feature.** Six approval policies, dangerous-command rejection, and confirmation for anything outside the working directory. You choose the risk level, not the agent.
+- **Safety is a first-class feature.** Six approval policies, dangerous-command rejection, and confirmation for anything outside the working directory. You choose the risk level, not the agent. See [Approvals](docs/approvals.md).
 - **It survives long sessions.** Context pruning reclaims tokens from stale tool output, and when the window fills up, Postal compacts history into a continuation brief and keeps going instead of erroring out.
-- **Nothing is lost when you close the terminal.** Sessions are checkpointed after every turn, so `postal --continue` puts you back exactly where you were, and `/rewind` walks the conversation back to any earlier checkpoint.
-- **Hackable by design.** A readable Python codebase built on Rich, Click, and Pydantic. Adding a tool or a sub-agent is a small, well-marked change.
+- **Nothing is lost when you close the terminal.** Sessions are checkpointed after every turn, so `postal --continue` puts you back exactly where you were, and `/rewind` walks the conversation back to any earlier checkpoint. See [Sessions](docs/sessions.md).
+- **Hackable by design.** A readable, object-oriented Python codebase built on Rich, Click, and Pydantic. Every tool is one class behind a shared abstract base, so adding a tool or a sub-agent is a small, well-marked change. See [Architecture](docs/architecture.md).
 - **Component-based UI design.** Postal uses a modular, component-based UI system with separate components for every visual element (spinners, gutters, markdown rendering, tool displays, confirmations, etc.), making it easy to maintain, customize, and extend the interface.
 
 ## What it can do
 
-### Tools
 | | |
 | --- | --- |
 | **Files** | `read`, `write`, `edit`, `apply_patch`, `grep`, `glob`, and `list_directories` for working with a codebase. `apply_patch` batches creates, updates, deletes and renames across several files into one all-or-nothing call. |
 | **Shell** | The `shell` tool executes commands in the working directory. |
 | **Planning** | A `plan` tool tracks steps (a todo list) across the agent loop. |
-| **Network** | Web search via DuckDuckGo and URL fetching. |
-| **Memory** | Key-value storage that survives across sessions. |
-| **MCP** | Connects to external MCP servers for additional tools and data sources. |
-
-### Agent
-| | |
-| --- | --- |
+| **Network and memory** | Web search via DuckDuckGo, URL fetching, and key-value storage that survives across sessions. |
 | **Sub-agents** | Specialized agents the main agent can delegate to: `codebase_investigator`, `code_reviewer`, `software_architect`, `test_writer`, `debugger`. |
-| **Approvals** | Mutating tool calls are gated by an approval policy, from confirming every write to running unattended. See [Approvals](#approvals). |
-| **`AGENTS.md`** | Project instructions are picked up automatically and followed while working. |
-| **Context pruning** | Old tool outputs are cleared once they pile up past the recent working set, reclaiming tokens without touching the conversation itself. |
-| **Compaction** | When the context window fills up, history is summarized into a continuation brief and the session resumes from it instead of erroring out. |
-| **Sessions** | Every turn is checkpointed to disk, so a conversation can be resumed, listed, or rewound to an earlier point. See [Sessions](#sessions). |
-
-### Interface
-| | |
-| --- | --- |
-| **Interactive TUI** | Full-screen terminal interface built on Rich, with streaming responses, live tool call output, and token usage tracking. |
-| **Visible thinking** | Reasoning models stream their thinking into the transcript before the answer, dimmed under a gutter. Tune or hide it with `/thinking`. |
-| **Slash commands** | Control the session without leaving it. See [Slash commands](#slash-commands). |
+| **MCP** | Connects to external MCP servers for additional tools and data sources. |
+| **Interactive TUI** | Full-screen terminal interface built on Rich, with streaming responses, live tool call output, visible model reasoning, and token usage tracking. |
 | **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting. |
-| **Session management** | Save, list, resume, and rewind conversations from inside the TUI or from the command line. |
 
 ## Technologies
 
@@ -215,6 +194,9 @@ Two rules apply on top of the policy, and no policy except `yolo` overrides them
 - **Anything touching a path outside the working directory is confirmed**, however permissive the policy is (`never` rejects it instead).
 
 The active policy is printed at startup and shown in the prompt badge, color-coded by risk: normal for `ask`, `auto-edit` and `read-only`, amber for `auto` and `on fail`, red for `yolo`.
+=======
+Details in [Tools](docs/tools.md) and [Slash commands](docs/slash-commands.md).
+>>>>>>> origin/main
 
 ## Roadmap
 

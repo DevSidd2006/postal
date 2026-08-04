@@ -5,6 +5,7 @@ from ui.format.args import (
     headline,
     ordered_args,
     secondary_args,
+    split_tool_name,
     summarise_value,
 )
 from ui.format.code import extract_read_code, guess_language
@@ -27,5 +28,6 @@ __all__ = [
     'headline',
     'ordered_args',
     'secondary_args',
+    'split_tool_name',
     'summarise_value',
 ]

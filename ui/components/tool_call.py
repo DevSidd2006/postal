@@ -17,6 +17,7 @@ from ui.format import (
     guess_language,
     headline,
     secondary_args,
+    split_tool_name,
 )
 from ui.theme import POSTAL_SYNTAX
 from utils.text import truncate_text
@@ -370,7 +371,11 @@ def tool_header(
     head: str | None,
     status: Text,
 ) -> Table:
-    left = Text.assemble((f"{icon} ", icon_style), (name, "tool"))
+    label, variant = split_tool_name(name)
+    left = Text.assemble((f"{icon} ", icon_style), (label, "tool"))
+    if variant:
+        left.append(": ", style="muted")
+        left.append(variant, style="muted")
     if head:
         left.append("  ")
         left.append(head, style="subtitle")
