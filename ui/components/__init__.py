@@ -11,7 +11,7 @@ from ui.components.logo import LOGO_HEIGHT, LOGO_WIDTH, POSTAL_VERSION, logo, sm
 from ui.components.markdown import MarkdownStream, render_inline, render_line, render_markdown
 from ui.components.memory import render_memory
 from ui.components.plan import render_plan
-from ui.components.shimmer import shimmer
+from ui.components.shimmer import shimmer, shimmer_tool_label, shimmers
 from ui.components.spinner import SPINNER_INTERVAL, Spinner
 from ui.components.thinking import (
     REASONING_LABEL,
@@ -60,6 +60,8 @@ __all__ = [
     'render_plan',
     'render_transcript',
     'shimmer',
+    'shimmer_tool_label',
+    'shimmers',
     'small_wordmark',
     'thinking_text_for',
     'tool_blocks',

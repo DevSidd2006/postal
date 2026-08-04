@@ -29,6 +29,8 @@ from ui.components import (
     confirmation_request,
     random_thinking_text,
     shimmer,
+    shimmer_tool_label,
+    shimmers,
     tool_blocks,
     tool_header,
     tool_status,
@@ -306,10 +308,14 @@ class TUI:
         head = headline_of(display_args)
         self._tool_progress = ""
 
+        shimmering = shimmers(tool_kind)
+
         def render() -> Any:
-            line = Text.assemble(
-                (f"{self._spinner.char()} ", "tool"), (name, "highlight")
-            )
+            line = Text.assemble((f"{self._spinner.char()} ", "tool"))
+            if shimmering:
+                line.append_text(shimmer_tool_label(name, self._spinner.frame))
+            else:
+                line.append(name, style="highlight")
             if head:
                 line.append("  ")
                 line.append(head[1], style="subtitle")

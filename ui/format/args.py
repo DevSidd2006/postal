@@ -19,6 +19,14 @@ ARG_ORDER = {
 
 HEADLINE_MAX_WIDTH = 64
 
+SUBAGENT_PREFIX = "subagent_"
+
+
+def split_tool_name(name: str) -> tuple[str, str | None]:
+    if not name.startswith(SUBAGENT_PREFIX):
+        return name, None
+    return "subagent", name[len(SUBAGENT_PREFIX):].replace("_", " ")
+
 
 def ordered_args(tool_name: str, args: dict[str, Any]) -> list[Tuple[str, Any]]:
     preferred = ARG_ORDER.get(tool_name, [])

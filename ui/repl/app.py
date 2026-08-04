@@ -115,7 +115,7 @@ class Repl:
         except asyncio.CancelledError:
             self.tui.stop_thinking()
             self.tui.gap()
-            self.tui.print_block(Text("Interrupted", style="warning"))
+            self.tui.print_block(Text("Interrupted, what should postal do instead?", style="warning"))
         except Exception as exc:
             self.tui.stop_thinking()
             self.tui.gap()
