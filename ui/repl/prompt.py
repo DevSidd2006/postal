@@ -22,6 +22,11 @@ PROMPT_STYLE = Style.from_dict(
         "status": f"noreverse {hex_colour('graphite')}",
         "status.warn": f"noreverse {hex_colour('amber')}",
         "status.danger": f"noreverse bold {hex_colour('red')}",
+        "completion-menu": "",
+        "completion-menu.completion": f"{hex_colour('bright')}",
+        "completion-menu.completion.current": f"{hex_colour('accent')} bold",
+        "completion-menu.meta.completion": f"{hex_colour('silver')}",
+        "completion-menu.meta.completion.current": f"{hex_colour('silver')}",
     }
 )
 

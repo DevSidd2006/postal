@@ -31,6 +31,7 @@ HELP_TEXT = """\
 ## Tips
 
 - Just type your message to chat with the agent
+- Type `/` to see every command and keep typing to filter them; `↑`/`↓` to pick, `Enter` to run, `Tab` to fill in
 - The agent can read, write, and execute code
 - Some operations require approval (can be configured)
 - Sessions are saved after every turn; `postal --resume` picks the last one up

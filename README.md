@@ -90,7 +90,113 @@ Full [CLI reference](docs/cli.md) · [configuration reference](docs/configuratio
 | **Interactive TUI** | Full-screen terminal interface built on Rich, with streaming responses, live tool call output, visible model reasoning, and token usage tracking. |
 | **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting. |
 
+## Technologies
+
+### Frontend
+
+| | |
+| --- | --- |
+| **[Rich](https://github.com/Textualize/rich)** | The whole TUI: full-screen live rendering, streaming responses, tool call panels, diffs, markdown, and the color theme. |
+| **[prompt-toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit)** | The input line: key bindings, multiline editing, history, and slash command completion. |
+| **[Pygments](https://pygments.org/)** | Syntax highlighting for code blocks and file previews rendered through Rich. |
+
+### Backend
+
+| | |
+| --- | --- |
+| **[Python 3.11+](https://www.python.org/)** | The agent loop is `asyncio`-based, so streaming, tool calls, and MCP connections run concurrently. |
+| **[OpenAI SDK](https://github.com/openai/openai-python)** | The API client, pointed at OpenRouter's OpenAI-compatible endpoint for streaming and tool calling. |
+| **[OpenRouter](https://openrouter.ai/)** | The model gateway. One login, any model, no per-vendor SDKs. |
+| **[Pydantic](https://docs.pydantic.dev/)** | Config schemas, tool argument validation, and the JSON Schema sent to the model for each tool definition. |
+| **[FastMCP](https://github.com/jlowin/fastmcp) / [MCP](https://modelcontextprotocol.io/)** | Connecting to external MCP servers and exposing their tools to the agent. |
+| **[tiktoken](https://github.com/openai/tiktoken)** | Token counting that drives context pruning and compaction. |
+| **[httpx](https://www.python-httpx.org/)** | Async HTTP for URL fetching and the OAuth token exchange. |
+| **[ddgs](https://github.com/deedy5/ddgs)** | DuckDuckGo-backed web search. |
+| **[Click](https://click.palletsprojects.com/)** | The `postal` CLI: flags, single-shot mode, and the `login` / `logout` subcommands. |
+| **OAuth 2.0 + PKCE** | Browser login runs on a stdlib `http.server` loopback redirect, with the key stored locally. |
+| **[platformdirs](https://github.com/tox-dev/platformdirs) + TOML** | Cross-platform config and credential paths, read with `tomllib`. |
+| **[Docker](https://www.docker.com/)** | A `Dockerfile` and Compose file in [`docker/`](docker/) for running the agent sandboxed. |
+
+## Slash commands
+
+| Command | What it does |
+| --- | --- |
+| `/help` | Show all commands |
+| `/model <name>` | Switch models mid-session |
+| `/approval <mode>` | Switch the approval policy mid-session |
+| `/thinking [on\|off\|low\|medium\|high]` | Show, hide, or retune the model's reasoning |
+| `/clear` | Start a fresh conversation (the old one stays saved) |
+| `/config` | Show the active configuration |
+| `/stats` | Session statistics: tokens, elapsed time, tool calls |
+| `/tools` | List available tools |
+| `/mcp` | Show MCP server status |
+| `/sessions [all]` | List saved sessions, newest first |
+| `/sessions rm <n\|id>` | Delete a saved session |
+| `/resume <n\|id>` | Load a saved session into the current one |
+| `/checkpoint [label]` | Save a checkpoint now, with an optional name |
+| `/checkpoints` | List the checkpoints in this session |
+| `/rewind <n\|id>` | Roll the conversation back to a checkpoint |
+| `/exit`, `/quit` | Leave the agent |
+
+Commands autocomplete as you type: hitting `/` lists every command, the list narrows as you keep typing, and `↑`/`↓` select while `Enter` runs the highlighted one (`Tab` fills it in if you want to add arguments first).
+
+## Sessions
+
+Postal writes the conversation to disk after every turn, so closing the terminal does not kill your conversation. All conversations are resume-able and can be accessed by running a command shown below.
+
+```bash
+postal --continue        # resume the most recent session in this directory
+postal --resume 3f2a1c   # resume a specific session (a prefix of the id is enough)
+postal sessions          # what is saved for this directory
+postal sessions --all    # every directory
+postal sessions rm 3f2a1c
+```
+
+Inside the TUI, `/sessions` lists what is saved and `/resume` loads one into the running agent, transcript and token totals included. The system prompt is not restored: it is rebuilt from the current config and tool set, so a resumed session picks up any model, approval, or `AGENTS.md` changes you have made since.
+
+### Checkpoints
+
+Each save is a checkpoint, a full snapshot of the conversation at that point. Turns are checkpointed automatically, and `/checkpoint <label>` marks one by hand before you try something risky:
+
+```text
+❯ /checkpoint before the refactor
+Saved before the refactor · 24 messages · session 3f2a1c8b
+
+❯ /checkpoints
+1  a41f9c02  turn 3                 18 msgs  22m ago
+2  7d2b1e55  turn 4                 24 msgs  4m ago
+3  e0c34a91  before the refactor    24 msgs  just now
+
+❯ /rewind 1
+Rewound to turn 3 · 18 messages · turn 3
+```
+
+Rewinding replaces the conversation the model sees, which makes it the way out of a turn that went sideways: roll back to before the detour and take another run at it. **It only rewinds the conversation, not your files** — anything already written to disk stays written.
+
+Sessions live in `~/.config/postal/sessions/<id>/`, one directory per session, with the transcripts in a JSONL file next to a small `meta.json`. Old checkpoints are trimmed once a session passes `max_checkpoints` (autosaves go first, named ones are kept), and the oldest sessions are dropped past `max_sessions`. Set `enabled = false` under `[session]` to keep conversations off disk entirely.
+
+## Approvals
+
+Before Postal runs anything that changes state, the approval policy decides whether it goes ahead, asks you, or is refused outright. Read-only tools (`read`, `grep`, `glob`, `list_directories`, `plan`) never prompt, so a policy only affects writes, shell commands, network calls, memory writes, MCP tools, and sub-agent runs.
+
+| Value | Badge | Behaviour |
+| --- | --- | --- |
+| `on_request` *(default)* | `ask` | Confirm every mutating tool call. Commands matched as known-safe (`ls`, `git status`, `grep`, …) run without asking. |
+| `auto_edit` | `auto-edit` | File edits and writes inside the working directory go through unprompted; shell commands still need confirmation unless known-safe. |
+| `auto` | `auto` | Everything runs except dangerous commands, which are rejected. |
+| `on_fail` | `on fail` | Currently identical to `auto`. Reserved for prompting after a failed tool call, which is not implemented yet. |
+| `never` | `read-only` | Rejects anything that isn't a known-safe command. Nothing gets written, and you are never prompted. |
+| `yolo` | `yolo` | Approves everything, including commands matched as dangerous. Only use this in a sandbox or container. |
+
+Two rules apply on top of the policy, and no policy except `yolo` overrides them:
+
+- **Dangerous commands are rejected.** `rm -rf /`, `dd if=`, `mkfs`, `shutdown`, `curl … | bash`, fork bombs, and similar patterns are refused before the shell ever sees them (the full list is `DANGEROUS_PATTERNS` in `safety/approval.py`).
+- **Anything touching a path outside the working directory is confirmed**, however permissive the policy is (`never` rejects it instead).
+
+The active policy is printed at startup and shown in the prompt badge, color-coded by risk: normal for `ask`, `auto-edit` and `read-only`, amber for `auto` and `on fail`, red for `yolo`.
+=======
 Details in [Tools](docs/tools.md) and [Slash commands](docs/slash-commands.md).
+>>>>>>> origin/main
 
 ## Roadmap
 
