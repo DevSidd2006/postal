@@ -14,7 +14,7 @@ from pygments.token import (
 )
 from rich.syntax import PygmentsSyntaxTheme
 
-from ui.theme import hex_colour
+from ui.theme.palette import hex_colour
 
 
 class PostalStyle(PygmentsStyle):

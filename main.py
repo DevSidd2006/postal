@@ -10,9 +10,7 @@ from config.credentials import (
     save_credentials,
 )
 from config.oauth import OAuthError, login_with_oauth
-from ui.renderer import TUI, get_console
-from ui.repl import Repl
-from ui.stream import stream_turn
+from ui import TUI, Repl, get_console, stream_turn
 import asyncio
 import click
 import sys

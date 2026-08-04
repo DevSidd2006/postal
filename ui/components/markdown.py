@@ -8,8 +8,8 @@ from rich.rule import Rule
 from rich.syntax import Syntax
 from rich.text import Text
 
-from ui.blocks import Gutter
-from ui.syntax import POSTAL_SYNTAX
+from ui.components.gutter import Gutter
+from ui.theme import POSTAL_SYNTAX
 
 _INLINE = re.compile(
     r"(?P<code>`[^`\n]+`)"

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from agent.agent import Agent
 from agent.events import AgentEventType
-from ui.renderer import TUI, random_thinking_text, thinking_text_for
+from ui.components import random_thinking_text, thinking_text_for
+from ui.tui import TUI
 
 
 def _tool_kind(agent: Agent, tool_name: str) -> str | None:
