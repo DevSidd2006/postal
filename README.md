@@ -59,8 +59,8 @@ Configuration options live in `~/.config/postal/config.toml`, with per-project o
 # Top-level settings
 approval = "on_request"         # "on_request", "auto_edit", "auto", "never", "yolo"
 allowed_tools = ["read", "write"] # Optional: restrict the agent to these tools
-max_turns = 100                 # Max interaction turns before forcing an exit
-max_tool_output_tokens = 50000  # Token limit for tool outputs
+# developer_instructions = ""   # General instructions for the agent (overrides AGENTS.md when set)
+# user_instructions = ""        # Instructions for the user's specific preferences
 developer_instructions = ""     # General instructions for the agent
 user_instructions = ""          # Instructions for the user's specific preferences
 debug = false                   # Enable debug logging
