@@ -2,12 +2,13 @@ from typing import Any, Tuple
 
 HEADLINE_KEYS = ("path", "command", "pattern", "url", "query", "action")
 
-BULKY_KEYS = frozenset({"content", "old_string", "new_string"})
+BULKY_KEYS = frozenset({"content", "old_string", "new_string", "patch"})
 
 ARG_ORDER = {
     "read": ["path", "offset", "limit"],
     "write": ["path", "create_directories", "content"],
     "edit": ["path", "replace_all", "old_string", "new_string"],
+    "apply_patch": ["dry_run", "patch"],
     "shell": ['command', 'timeout', 'cwd'],
     "list_dir": ['path', 'include_hidden'],
     "grep": ['path', 'case_insensitive', 'pattern'],

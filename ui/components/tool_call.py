@@ -138,6 +138,43 @@ def _written(outcome: ToolOutcome) -> Blocks:
     return summary, details
 
 
+def _patch(outcome: ToolOutcome) -> Blocks:
+    """A patch touches several files, so the operation list is the headline."""
+
+    operations = outcome.count("operations")
+    files = outcome.count("files")
+
+    headline_text = _joined(
+        [
+            f"{operations} operations" if operations is not None else None,
+            f"{files} files" if files is not None else None,
+            "dry run" if outcome.metadata.get("dry_run") else None,
+        ]
+    )
+
+    summary: list[Any] = []
+    if headline_text is not None:
+        if outcome.diff:
+            headline_text.append(" ┈ ", style="muted")
+            headline_text.append_text(diff_stat_text(outcome.diff))
+        summary.append(headline_text)
+
+    details: list[Any] = [Text(outcome.output.strip(), style="muted")]
+
+    if outcome.diff:
+        details.append(
+            Syntax(
+                truncate_text(outcome.diff, outcome.model_name, MAX_DIFF_TOKENS),
+                "diff",
+                theme=POSTAL_SYNTAX,
+                background_color="default",
+                word_wrap=True,
+            )
+        )
+
+    return summary, details
+
+
 def _shell(outcome: ToolOutcome) -> Blocks:
     summary = [
         _joined(
@@ -270,6 +307,7 @@ RENDERERS: dict[str, Callable[[ToolOutcome], Blocks]] = {
     "read": _read,
     "write": _written,
     "edit": _written,
+    "apply_patch": _patch,
     "shell": _shell,
     "list_dir": _list_dir,
     "grep": _grep,

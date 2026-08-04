@@ -209,7 +209,7 @@ SOFTWARE_ARCHITECT = SubagentDefinition(
     Read before you write, implement code based on user's request.
     Especially, use the plan tool when tasks get complicated or long.
     You can give back feedback of code if necessary Tools that can be called and used are
-    read, list_directories, grep, glob, write, edit, plan
+    read, list_directories, grep, glob, write, edit, apply_patch, plan
 
     """,
 
@@ -220,6 +220,7 @@ SOFTWARE_ARCHITECT = SubagentDefinition(
         'glob',
         'write',
         'edit',
+        'apply_patch',
         'plan'
     ],
 
@@ -236,7 +237,7 @@ TEST_WRITER = SubagentDefinition(
     You are a code test writer, your speciality is in writing tests for the user to put their code against edge cases, and special areas where their code
     can fail.
 
-    Especially, use tools like plan to plan out multiple tests if neccessary, tools you can call are read, list_directories, grep, glob, write, edit, shell, and plan.
+    Especially, use tools like plan to plan out multiple tests if neccessary, tools you can call are read, list_directories, grep, glob, write, edit, apply_patch, shell, and plan.
 
     """,
 
@@ -248,6 +249,7 @@ TEST_WRITER = SubagentDefinition(
         'write',
         'plan',
         'edit',
+        'apply_patch',
         'shell'
     ],
 
@@ -262,7 +264,7 @@ DEBUGGER = SubagentDefinition(
 
     You are a professional debugger. Your purpose in working with the user is to find bugs of any severity in the code.
     Use the plan tool when debugging gets complex or long.
-    Use tools such as: grep, glob, write, edit, read, plan
+    Use tools such as: grep, glob, write, edit, apply_patch, read, plan
 
     """,
 
@@ -271,6 +273,7 @@ DEBUGGER = SubagentDefinition(
         'glob',
         'write',
         'edit',
+        'apply_patch',
         'read',
         'plan'
     ],

@@ -15,6 +15,7 @@ TOOL_THINKING_WORDS = {
     "read": "Reading…",
     "write": "Writing…",
     "edit": "Editing…",
+    "apply_patch": "Patching…",
     "shell": "Running…",
     "list_dir": "Looking around…",
     "grep": "Searching…",

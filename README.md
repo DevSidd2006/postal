@@ -78,13 +78,14 @@ max_sessions = 50    # sessions kept before the oldest are dropped
 - **It survives long sessions.** Context pruning reclaims tokens from stale tool output, and when the window fills up, Postal compacts history into a continuation brief and keeps going instead of erroring out.
 - **Nothing is lost when you close the terminal.** Sessions are checkpointed after every turn, so `postal --continue` puts you back exactly where you were, and `/rewind` walks the conversation back to any earlier checkpoint.
 - **Hackable by design.** A readable Python codebase built on Rich, Click, and Pydantic. Adding a tool or a sub-agent is a small, well-marked change.
+- **Component-based UI design.** Postal uses a modular, component-based UI system with separate components for every visual element (spinners, gutters, markdown rendering, tool displays, confirmations, etc.), making it easy to maintain, customize, and extend the interface.
 
 ## What it can do
 
 ### Tools
 | | |
 | --- | --- |
-| **Files** | `read`, `write`, `edit`, `grep`, `glob`, and `list_directories` for working with a codebase. |
+| **Files** | `read`, `write`, `edit`, `apply_patch`, `grep`, `glob`, and `list_directories` for working with a codebase. `apply_patch` batches creates, updates, deletes and renames across several files into one all-or-nothing call. |
 | **Shell** | The `shell` tool executes commands in the working directory. |
 | **Planning** | A `plan` tool tracks steps (a todo list) across the agent loop. |
 | **Network** | Web search via DuckDuckGo and URL fetching. |
