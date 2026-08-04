@@ -17,6 +17,27 @@ Handler = Callable[[Agent, list[str]], None]
 
 EXIT_NAMES = {"exit", "quit"}
 
+COMMAND_HINTS: dict[str, str] = {
+    "help": "Show this help",
+    "clear": "Clear conversation history",
+    "config": "Show current configuration",
+    "model": "Change the model",
+    "approval": "Change approval mode",
+    "thinking": "Configure model reasoning",
+    "reasoning": "Alias for /thinking",
+    "stats": "Show session statistics",
+    "tools": "List available tools",
+    "mcp": "Show MCP server status",
+    "sessions": "List saved sessions",
+    "resume": "Load a saved session",
+    "checkpoint": "Save a checkpoint now",
+    "save": "Alias for /checkpoint",
+    "checkpoints": "List checkpoints in this session",
+    "rewind": "Roll the conversation back",
+    "exit": "Exit the agent",
+    "quit": "Exit the agent",
+}
+
 
 class SlashCommands(HelpCommands, SettingsCommands, SessionCommands, InspectCommands):
     """Everything typed after a `/`, routed to the group that handles it."""
@@ -42,6 +63,12 @@ class SlashCommands(HelpCommands, SettingsCommands, SessionCommands, InspectComm
             "checkpoints": self.list_checkpoints,
             "rewind": self.rewind,
         }
+
+    def command_names(self) -> list[str]:
+        return sorted(self._handlers.keys() | EXIT_NAMES)
+
+    def describe(self, name: str) -> str:
+        return COMMAND_HINTS.get(name, "")
 
     def is_command(self, message: str) -> bool:
         return message.startswith("/")

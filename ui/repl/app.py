@@ -11,6 +11,8 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.filters import to_filter
 from prompt_toolkit.formatted_text import StyleAndTextTuples
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.layout.containers import Float, FloatContainer
+from prompt_toolkit.layout.menus import CompletionsMenu
 from rich.text import Text
 
 from agent.agent import Agent
@@ -19,6 +21,7 @@ from ui.components import echo_user_message
 from ui.console import get_console
 from ui.repl.banner import render_banner
 from ui.repl.commands import SlashCommands
+from ui.repl.completer import SlashCompleter
 from ui.repl.keys import build_key_bindings, turn_keys
 from ui.repl.prompt import (
     PROMPT_STYLE,
@@ -49,10 +52,11 @@ class Repl:
         self.console = get_console()
         self.tui = TUI(config, self.console)
         self.commands = SlashCommands(config, self.console)
+        self._completion_index = 0
         self.session: PromptSession[str] = PromptSession(
             history=FileHistory(str(_history_path())),
             style=PROMPT_STYLE,
-            key_bindings=build_key_bindings(self.tui),
+            key_bindings=build_key_bindings(self.tui, self),
             erase_when_done=True,
         )
         self._reflowing = False
@@ -122,7 +126,41 @@ class Repl:
             self.tui.print_block(Text(f"{type(exc).__name__}: {exc}", style="error"))
 
     def _prompt_fragments(self) -> StyleAndTextTuples:
-        return prompt_fragments(self.console.width, self.tui.expansion_fragments())
+        text = self.session.default_buffer.text
+        expansion = self.tui.expansion_fragments()
+
+        if text.startswith("/") and " " not in text:
+            prefix = text[1:]
+            matches = [
+                (name, self.commands.describe(name))
+                for name in self.commands.command_names()
+                if name.startswith(prefix)
+            ]
+            if matches:
+                cmd_fragments: StyleAndTextTuples = []
+                max_show = 8
+                if getattr(self, "_completion_index", 0) >= len(matches):
+                    self._completion_index = 0
+
+                for idx, (name, desc) in enumerate(matches[:max_show]):
+                    is_selected = (idx == self._completion_index)
+                    mark = "  > " if is_selected else "    "
+                    cmd_str = f"/{name}".ljust(18)
+
+                    cmd_style = "class:prompt bold" if is_selected else "class:frame"
+                    meta_style = "class:prompt" if is_selected else "class:status"
+
+                    cmd_fragments.append(("", mark))
+                    cmd_fragments.append((cmd_style, cmd_str))
+                    cmd_fragments.append((meta_style, f"  {desc}\n"))
+
+                if len(matches) > max_show:
+                    hidden = len(matches) - max_show
+                    cmd_fragments.append(("class:status", f"    … {hidden} more commands\n"))
+
+                expansion = (expansion or []) + cmd_fragments
+
+        return prompt_fragments(self.console.width, expansion)
 
     def _continuation_fragments(
         self, width: int, _line_number: int, _wrap_count: int

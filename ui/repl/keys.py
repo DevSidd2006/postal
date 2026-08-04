@@ -5,6 +5,9 @@ import signal
 
 from contextlib import contextmanager
 
+from typing import Any
+
+from prompt_toolkit.filters import Condition, has_completions
 from prompt_toolkit.input import create_input
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
@@ -14,7 +17,7 @@ from ui.tui import TUI
 EXPAND_KEY = "c-o"
 
 
-def build_key_bindings(tui: TUI) -> KeyBindings:
+def build_key_bindings(tui: TUI, repl: Any = None) -> KeyBindings:
 
     bindings = KeyBindings()
 
@@ -27,6 +30,54 @@ def build_key_bindings(tui: TUI) -> KeyBindings:
         app.renderer.reset()
         app._request_absolute_cursor_position()
         app._redraw()
+
+    def is_slash_cmd() -> bool:
+        if repl is None:
+            return False
+        text = repl.session.default_buffer.text
+        return text.startswith("/") and " " not in text
+
+    @Condition
+    def slash_cmd_active() -> bool:
+        return is_slash_cmd()
+
+    def get_matches() -> list[tuple[str, str]]:
+        if repl is None:
+            return []
+        text = repl.session.default_buffer.text
+        if not text.startswith("/") or " " in text:
+            return []
+        prefix = text[1:]
+        return [
+            (name, repl.commands.describe(name))
+            for name in repl.commands.command_names()
+            if name.startswith(prefix)
+        ]
+
+    @bindings.add("down", filter=slash_cmd_active)
+    @bindings.add("tab", filter=slash_cmd_active)
+    def _(event) -> None:
+        matches = get_matches()
+        if matches and repl is not None:
+            repl._completion_index = (repl._completion_index + 1) % len(matches)
+
+    @bindings.add("up", filter=slash_cmd_active)
+    def _(event) -> None:
+        matches = get_matches()
+        if matches and repl is not None:
+            repl._completion_index = (repl._completion_index - 1) % len(matches)
+
+    @bindings.add("enter", filter=slash_cmd_active)
+    @bindings.add("c-j", filter=slash_cmd_active)
+    def _(event) -> None:
+        matches = get_matches()
+        if matches and repl is not None:
+            idx = getattr(repl, "_completion_index", 0)
+            if 0 <= idx < len(matches):
+                event.current_buffer.text = f"/{matches[idx][0]}"
+                event.current_buffer.cursor_position = len(event.current_buffer.text)
+            repl._completion_index = 0
+        event.current_buffer.validate_and_handle()
 
     return bindings
 

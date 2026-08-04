@@ -159,6 +159,8 @@ max_sessions = 50    # sessions kept before the oldest are dropped
 | `/rewind <n\|id>` | Roll the conversation back to a checkpoint |
 | `/exit`, `/quit` | Leave the agent |
 
+Commands autocomplete as you type: hitting `/` lists every command, the list narrows as you keep typing, and `↑`/`↓` select while `Enter` runs the highlighted one (`Tab` fills it in if you want to add arguments first).
+
 ## Sessions
 
 Postal writes the conversation to disk after every turn, so closing the terminal does not kill your conversation. All conversations are resume-able and can be accessed by running a command shown below.
