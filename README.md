@@ -53,11 +53,23 @@ postal login --paste     # paste an API key instead of browser OAuth
 postal logout            # remove the saved API key
 ```
 
-Model, temperature, and context window live in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`:
+Configuration options live in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`. Here is a comprehensive example:
 
 ```toml
+# Top-level settings
+approval = "on_request"         # "on_request", "auto_edit", "auto", "never", "yolo"
+allowed_tools = ["read", "write"] # Optional: restrict the agent to these tools
+# developer_instructions = ""   # General instructions for the agent (overrides AGENTS.md when set)
+# user_instructions = ""        # Instructions for the user's specific preferences
+developer_instructions = ""     # General instructions for the agent
+user_instructions = ""          # Instructions for the user's specific preferences
+debug = false                   # Enable debug logging
+hooks_enabled = true            # Enable or disable hooks globally
+
 [model]
 name = "anthropic/claude-sonnet-4.5"
+temperature = 1.0
+context_window = 256000
 
 [reasoning]
 enabled = true     # ask the model to think (ignored by models that cannot)
@@ -69,6 +81,30 @@ visible = true     # stream the thinking into the transcript
 enabled = true       # save the conversation so it can be resumed
 max_checkpoints = 20 # snapshots kept per session
 max_sessions = 50    # sessions kept before the oldest are dropped
+
+[shell_environment]
+ignore_default_excludes = false
+exclude_patterns = ["*KEY*", "*TOKEN*", "*SECRET*"] # Filters environment variables
+set_vars = { MY_VAR = "value" }                     # Injects environment variables
+
+# Connect to external tools via MCP (Model Context Protocol)
+[mcp_servers.my_server]
+enabled = true
+startup_timeout = 10.0
+command = "npx"             # For stdio servers
+args = ["-y", "my-server"]
+env = { API_KEY = "123" }
+# url = "http://..."        # Alternatively, use a URL for HTTP/SSE servers
+cwd = "/path/to/dir"
+
+# Run commands or scripts at specific points in the agent lifecycle
+[[hooks]]
+name = "lint_check"
+trigger = "after_tool"      # "before_agent", "after_agent", "before_tool", "after_tool", "on_error"
+command = "npm run lint"
+# script = "..."            # Alternatively, specify a bash script directly
+timeout_sec = 30.0
+enabled = true
 ```
 
 ## Why Postal?

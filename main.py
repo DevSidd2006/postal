@@ -60,7 +60,17 @@ class DefaultGroup(click.Group):
             return "run", self.get_command(ctx, "run"), args
 
 
-@click.group(cls=DefaultGroup, invoke_without_command=True)
+@click.group(
+    cls=DefaultGroup,
+    invoke_without_command=True,
+    epilog="""\b
+Examples:
+  postal                    Start the interactive TUI
+  postal "fix the bug"      Run a single prompt and exit
+  postal --continue         Resume the last session in this directory
+  postal --resume 123456    Resume a specific session by ID
+"""
+)
 @click.version_option(package_name="postalcli", prog_name="postal")
 @click.option(
     '--cwd',
@@ -95,7 +105,13 @@ def main(ctx: click.Context, cwd: Path | None, resume: str | None, continue_last
         ctx.invoke(run, prompt=None)
 
 
-@main.command()
+@main.command(
+    epilog="""\b
+Examples:
+  postal run                       Launch the interactive TUI (same as just `postal`)
+  postal run "write a hello world" Run a one-shot prompt
+"""
+)
 @click.argument("prompt", required=False)
 @click.pass_context
 def run(ctx: click.Context, prompt: str | None):
@@ -130,7 +146,13 @@ def run(ctx: click.Context, prompt: str | None):
         asyncio.run(Repl(config, resume=resume).run())
 
 
-@main.command()
+@main.command(
+    epilog="""\b
+Examples:
+  postal login          Open your browser to securely authorize with OpenRouter
+  postal login --paste  Paste an API key directly in the terminal
+"""
+)
 @click.option(
     "--base-url",
     default=None,
@@ -169,7 +191,14 @@ def login(base_url: str | None, paste: bool):
     console.print("[warning]The API_KEY environment variable, if set, still takes precedence.[/warning]")
 
 
-@main.group(invoke_without_command=True)
+@main.group(
+    invoke_without_command=True,
+    epilog="""\b
+Examples:
+  postal sessions        List all saved sessions for the current directory
+  postal sessions --all  List all saved sessions across all directories
+"""
+)
 @click.option(
     "--all",
     "all_projects",
@@ -205,7 +234,13 @@ def sessions(ctx: click.Context, all_projects: bool):
     console.print("[muted]Resume one with postal --resume <id>[/muted]")
 
 
-@sessions.command("rm")
+@sessions.command(
+    "rm",
+    epilog="""\b
+Examples:
+  postal sessions rm 123456    Delete the session matching the ID prefix
+"""
+)
 @click.argument("session_id")
 def sessions_rm(session_id: str):
     """Delete a saved session."""
@@ -233,6 +268,13 @@ def logout():
         console.print(f"[success]Logged out.[/success] Removed {get_credentials_path()}")
     else:
         console.print("[warning]No saved credentials to remove.[/warning]")
+
+
+@main.command("/help")
+@click.pass_context
+def cli_help(ctx: click.Context):
+    """Alias for --help."""
+    click.echo(ctx.parent.get_help())
 
 
 if __name__ == "__main__": # better than just main() ngl
