@@ -31,7 +31,7 @@
 
 Postal connects to LLMs through OpenRouter, reads and edits your code with a built-in tool set, runs shell commands, delegates to specialized sub-agents, and streams everything through a full-screen TUI. Every mutating action goes through an approval policy you control, so it is as autonomous or as careful as you want it to be.
 
-## Quickstart
+## Quickstart ↴
 
 Two commands and you are talking to an agent in your own repo:
 
@@ -70,11 +70,11 @@ Full [CLI reference](docs/cli.md) · [configuration reference](docs/configuratio
 
 ## Why Postal?
 
-- **Bring any model.** OpenRouter as the backend means one login gives you Claude, GPT, Gemini, DeepSeek, open-weight models, and whatever ships next. No vendor lock-in.
+- **Bring any model.** OpenRouter as the backend means versatility. One login gives you large models Cluade, OpenAI, Deepseek, Kimi, and even access to smaller free models.
 - **Safety is a first-class feature.** Six approval policies, dangerous-command rejection, and confirmation for anything outside the working directory. You choose the risk level, not the agent. See [Approvals](docs/approvals.md).
 - **It survives long sessions.** Context pruning reclaims tokens from stale tool output, and when the window fills up, Postal compacts history into a continuation brief and keeps going instead of erroring out.
-- **Nothing is lost when you close the terminal.** Sessions are checkpointed after every turn, so `postal --continue` puts you back exactly where you were, and `/rewind` walks the conversation back to any earlier checkpoint. See [Sessions](docs/sessions.md).
-- **Hackable by design.** A readable, object-oriented Python codebase built on Rich, Click, and Pydantic. Every tool is one class behind a shared abstract base, so adding a tool or a sub-agent is a small, well-marked change. See [Architecture](docs/architecture.md).
+- **Nothing is lost when you close the terminal.** Sessions are check pointed after every turn, so `postal --continue` puts you back exactly where you were, and `/rewind` walks the conversation back to any earlier checkpoint. See [Sessions](docs/sessions.md).
+- **Configurable by design.** A readable, object-oriented Python codebase built on Rich, Click, and Pydantic. Every tool is one class behind a shared abstract base, so adding a tool or a sub-agent is a small, well-marked change. See [Architecture](docs/architecture.md).
 - **Component-based UI design.** Postal uses a modular, component-based UI system with separate components for every visual element (spinners, gutters, markdown rendering, tool displays, confirmations, etc.), making it easy to maintain, customize, and extend the interface.
 
 ## What it can do
@@ -82,40 +82,13 @@ Full [CLI reference](docs/cli.md) · [configuration reference](docs/configuratio
 | | |
 | --- | --- |
 | **Files** | `read`, `write`, `edit`, `apply_patch`, `grep`, `glob`, and `list_directories` for working with a codebase. `apply_patch` batches creates, updates, deletes and renames across several files into one all-or-nothing call. |
-| **Shell** | The `shell` tool executes commands in the working directory. |
-| **Planning** | A `plan` tool tracks steps (a todo list) across the agent loop. |
+| **Shell** | The `shell` tool executes commands in the working directory. Automatically detects your OS to know what shell commands to execute. |
+| **Planning** | A `plan` tool tracks steps (a to do list) across the agent loop. |
 | **Network and memory** | Web search via DuckDuckGo, URL fetching, and key-value storage that survives across sessions. |
 | **Sub-agents** | Specialized agents the main agent can delegate to: `codebase_investigator`, `code_reviewer`, `software_architect`, `test_writer`, `debugger`. |
 | **MCP** | Connects to external MCP servers for additional tools and data sources. |
 | **Interactive TUI** | Full-screen terminal interface built on Rich, with streaming responses, live tool call output, visible model reasoning, and token usage tracking. |
 | **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting. |
-
-## Technologies
-
-### Frontend
-
-| | |
-| --- | --- |
-| **[Rich](https://github.com/Textualize/rich)** | The whole TUI: full-screen live rendering, streaming responses, tool call panels, diffs, markdown, and the color theme. |
-| **[prompt-toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit)** | The input line: key bindings, multiline editing, history, and slash command completion. |
-| **[Pygments](https://pygments.org/)** | Syntax highlighting for code blocks and file previews rendered through Rich. |
-
-### Backend
-
-| | |
-| --- | --- |
-| **[Python 3.11+](https://www.python.org/)** | The agent loop is `asyncio`-based, so streaming, tool calls, and MCP connections run concurrently. |
-| **[OpenAI SDK](https://github.com/openai/openai-python)** | The API client, pointed at OpenRouter's OpenAI-compatible endpoint for streaming and tool calling. |
-| **[OpenRouter](https://openrouter.ai/)** | The model gateway. One login, any model, no per-vendor SDKs. |
-| **[Pydantic](https://docs.pydantic.dev/)** | Config schemas, tool argument validation, and the JSON Schema sent to the model for each tool definition. |
-| **[FastMCP](https://github.com/jlowin/fastmcp) / [MCP](https://modelcontextprotocol.io/)** | Connecting to external MCP servers and exposing their tools to the agent. |
-| **[tiktoken](https://github.com/openai/tiktoken)** | Token counting that drives context pruning and compaction. |
-| **[httpx](https://www.python-httpx.org/)** | Async HTTP for URL fetching and the OAuth token exchange. |
-| **[ddgs](https://github.com/deedy5/ddgs)** | DuckDuckGo-backed web search. |
-| **[Click](https://click.palletsprojects.com/)** | The `postal` CLI: flags, single-shot mode, and the `login` / `logout` subcommands. |
-| **OAuth 2.0 + PKCE** | Browser login runs on a stdlib `http.server` loopback redirect, with the key stored locally. |
-| **[platformdirs](https://github.com/tox-dev/platformdirs) + TOML** | Cross-platform config and credential paths, read with `tomllib`. |
-| **[Docker](https://www.docker.com/)** | A `Dockerfile` and Compose file in [`docker/`](docker/) for running the agent sandboxed. |
 
 ## Slash commands
 
@@ -192,11 +165,6 @@ Two rules apply on top of the policy, and no policy except `yolo` overrides them
 
 - **Dangerous commands are rejected.** `rm -rf /`, `dd if=`, `mkfs`, `shutdown`, `curl … | bash`, fork bombs, and similar patterns are refused before the shell ever sees them (the full list is `DANGEROUS_PATTERNS` in `safety/approval.py`).
 - **Anything touching a path outside the working directory is confirmed**, however permissive the policy is (`never` rejects it instead).
-
-The active policy is printed at startup and shown in the prompt badge, color-coded by risk: normal for `ask`, `auto-edit` and `read-only`, amber for `auto` and `on fail`, red for `yolo`.
-=======
-Details in [Tools](docs/tools.md) and [Slash commands](docs/slash-commands.md).
->>>>>>> origin/main
 
 ## Roadmap
 
