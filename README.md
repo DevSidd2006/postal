@@ -70,10 +70,10 @@ Full [CLI reference](docs/cli.md) · [configuration reference](docs/configuratio
 
 ## Why Postal?
 
-- **Bring any model.** OpenRouter as the backend means versatility. One login gives you large models Cluade, OpenAI, Deepseek, Kimi, and even access to smaller free models.
+- **Bring any model.** OpenRouter as the backend means versatility. One login gives you large models Claude, OpenAI, Deepseek, Kimi, and even access to smaller free models.
 - **Safety is a first-class feature.** Six approval policies, dangerous-command rejection, and confirmation for anything outside the working directory. You choose the risk level, not the agent. See [Approvals](docs/approvals.md).
 - **It survives long sessions.** Context pruning reclaims tokens from stale tool output, and when the window fills up, Postal compacts history into a continuation brief and keeps going instead of erroring out.
-- **Nothing is lost when you close the terminal.** Sessions are check pointed after every turn, so `postal --continue` puts you back exactly where you were, and `/rewind` walks the conversation back to any earlier checkpoint. See [Sessions](docs/sessions.md).
+- **Nothing is lost when you close the terminal.** Sessions are checkpointed after every turn, so `postal --continue` puts you back exactly where you were, and `/rewind` walks the conversation back to any earlier checkpoint. See [Sessions](docs/sessions.md).
 - **Configurable by design.** A readable, object-oriented Python codebase built on Rich, Click, and Pydantic. Every tool is one class behind a shared abstract base, so adding a tool or a sub-agent is a small, well-marked change. See [Architecture](docs/architecture.md).
 - **Component-based UI design.** Postal uses a modular, component-based UI system with separate components for every visual element (spinners, gutters, markdown rendering, tool displays, confirmations, etc.), making it easy to maintain, customize, and extend the interface.
 
@@ -115,7 +115,7 @@ Commands autocomplete as you type: hitting `/` lists every command, the list nar
 
 ## Sessions
 
-Postal writes the conversation to disk after every turn, so closing the terminal does not kill your conversation. All conversations are resume-able and can be accessed by running a command shown below.
+Postal writes the conversation to disk after every turn, so closing the terminal does not kill your conversation. All conversations are resumable and can be accessed by running a command shown below.
 
 ```bash
 postal --continue        # resume the most recent session in this directory
